@@ -15,7 +15,18 @@
 </head>
 <body>
 
-  <img src="logo-apassul.png" alt="Logo Apassul" class="logo">
+  <!-- Barra "congelada" no topo da página, igual à linha congelada do Excel:
+       fica sempre visível (position: fixed no CSS), mesmo rolando a página
+       inteira pra baixo. O script.js encolhe a logo dentro dela conforme
+       rola, e a estabiliza no tamanho cheio de novo ao voltar pro topo. -->
+  <header class="barra-logo" id="barraLogo">
+    <img src="logo-apassul.png" alt="Logo Apassul" class="logo">
+  </header>
+  <!-- Como a barra acima é "fixed" (sai do fluxo normal da página), esse
+       espaço reservado é o que evita que o resto do conteúdo fique escondido
+       atrás dela. A altura dele é ajustada pelo script.js pra sempre bater
+       com o tamanho atual da barra. -->
+  <div class="espaco-barra-logo" id="espacoBarraLogo"></div>
 
   <h1>Área de Inscrição</h1>
 

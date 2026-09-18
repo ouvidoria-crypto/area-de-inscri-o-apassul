@@ -23,39 +23,60 @@ function esconderConfirmacao() {
 overlayConfirmacao.addEventListener("click", esconderConfirmacao);
 
 // ============================================================================
-// Logo que diminui conforme a página é rolada para baixo, e volta a crescer
-// conforme se rola para cima. O tamanho é recalculado a cada pedacinho da
-// rolagem (não é só um "liga/desliga" entre dois tamanhos), então o efeito
-// acompanha o movimento do mouse/dedo em tempo real.
+// Barra "congelada" no topo (mesma ideia da linha congelada do Excel): fica
+// sempre visível (é "position: fixed" no CSS) e encolhe conforme a página é
+// rolada para baixo, voltando a crescer - e se estabilizando no tamanho
+// cheio - conforme se rola de volta para cima. O tamanho é recalculado a
+// cada pedacinho da rolagem, não é só um "liga/desliga" entre dois tamanhos.
 // ============================================================================
 
+const barraLogo = document.getElementById("barraLogo");
+const espacoBarraLogo = document.getElementById("espacoBarraLogo");
 const logo = document.querySelector(".logo");
+
 const LOGO_TAMANHO_MAXIMO = 440; // igual ao "max-width" original definido no CSS
 const LOGO_TAMANHO_MINIMO = 140; // tamanho do logo já totalmente encolhido
-const LOGO_DISTANCIA_ROLAGEM = 250; // depois de rolar essa distância (em pixels), o logo já está no tamanho mínimo
+const BARRA_PADDING_MAXIMO = 16; // padding vertical da barra no topo da página
+const BARRA_PADDING_MINIMO = 6; // padding vertical da barra já encolhida
+const DISTANCIA_ROLAGEM = 250; // depois de rolar essa distância (em pixels), a barra já está no tamanho mínimo
 
-function atualizarTamanhoLogo() {
+function atualizarBarraLogo() {
   // "progresso" vai de 0 (topo da página) até 1 (rolou 250px ou mais para baixo)
-  const progresso = Math.min(window.scrollY / LOGO_DISTANCIA_ROLAGEM, 1);
-  const tamanho = LOGO_TAMANHO_MAXIMO - progresso * (LOGO_TAMANHO_MAXIMO - LOGO_TAMANHO_MINIMO);
-  logo.style.maxWidth = `${tamanho}px`;
+  const progresso = Math.min(window.scrollY / DISTANCIA_ROLAGEM, 1);
+
+  const tamanhoLogo = LOGO_TAMANHO_MAXIMO - progresso * (LOGO_TAMANHO_MAXIMO - LOGO_TAMANHO_MINIMO);
+  logo.style.maxWidth = `${tamanhoLogo}px`;
+
+  const paddingVertical = BARRA_PADDING_MAXIMO - progresso * (BARRA_PADDING_MAXIMO - BARRA_PADDING_MINIMO);
+  barraLogo.style.paddingTop = `${paddingVertical}px`;
+  barraLogo.style.paddingBottom = `${paddingVertical}px`;
+
+  barraLogo.classList.toggle("comprimida", progresso > 0);
+
+  // A barra é "position: fixed", então o navegador não reserva espaço pra
+  // ela sozinho - é por isso que existe o "espacoBarraLogo" logo abaixo dela
+  // no HTML. Como a altura da barra muda a cada rolagem (a logo e o padding
+  // estão encolhendo), lemos a altura real que o navegador acabou de
+  // desenhar ("offsetHeight") e aplicamos esse mesmo valor no espaço
+  // reservado, pra o resto da página sempre começar exatamente onde a barra termina.
+  espacoBarraLogo.style.height = `${barraLogo.offsetHeight}px`;
 }
 
 // O navegador dispara o evento "scroll" dezenas de vezes por segundo -
 // "requestAnimationFrame" agrupa isso para recalcular no máximo uma vez por
 // quadro de tela, o que deixa a animação leve e sem travadas.
-let logoAtualizacaoAgendada = false;
+let barraAtualizacaoAgendada = false;
 window.addEventListener("scroll", () => {
-  if (!logoAtualizacaoAgendada) {
-    logoAtualizacaoAgendada = true;
+  if (!barraAtualizacaoAgendada) {
+    barraAtualizacaoAgendada = true;
     requestAnimationFrame(() => {
-      atualizarTamanhoLogo();
-      logoAtualizacaoAgendada = false;
+      atualizarBarraLogo();
+      barraAtualizacaoAgendada = false;
     });
   }
 });
 
-atualizarTamanhoLogo(); // já aplica o tamanho certo ao carregar (caso a página recarregue com a rolagem no meio)
+atualizarBarraLogo(); // já aplica o tamanho certo ao carregar (caso a página recarregue com a rolagem no meio)
 
 // ============================================================================
 // Máscaras e validações específicas de cada campo (Nome, Telefone e CPF)

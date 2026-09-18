@@ -18,14 +18,46 @@ body.pagina-admin {
   width: 95%;
 }
 
-/* Logo no topo da página: "block" + "margin: 0 auto" centraliza a imagem
-   horizontalmente (o mesmo truque usado no <body> para centralizar a página).
-   O "max-width" é o que o script.js altera aos poucos conforme a rolagem da
-   página (veja "atualizarTamanhoLogo" lá) - a "transition" deixa essa
-   mudança suave em vez de pular de tamanho em tamanho. */
+/* Barra "congelada" no topo, no mesmo espírito da linha congelada do Excel:
+   "position: fixed" tira a barra do fluxo normal da página e a mantém
+   sempre grudada no topo da tela, não importa o quanto se role para baixo.
+   "left/right: 0" faz ela ocupar a largura inteira da janela, mesmo a página
+   sendo mais estreita (max-width no <body>). O script.js ajusta o padding
+   vertical aos poucos conforme a rolagem, encolhendo a barra inteira. */
+.barra-logo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  background-color: #f4f6f4;
+  padding: 16px 20px;
+  box-sizing: border-box;
+  transition: padding 0.1s linear, box-shadow 0.2s ease;
+}
+
+/* Sombra sutil que aparece assim que a barra "descola" do topo do conteúdo -
+   reforça visualmente que ela está flutuando por cima do resto da página,
+   igual acontece na linha congelada de uma planilha. */
+.barra-logo.comprimida {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Como a barra virou "fixed", esse espaço reservado (a altura dele é
+   controlada pelo script.js) ocupa o lugar que ela deixou no fluxo normal
+   da página - sem isso, o <h1> logo abaixo ficaria escondido atrás da barra. */
+.espaco-barra-logo {
+  width: 100%;
+}
+
+/* O "max-width" é o que o script.js altera aos poucos conforme a rolagem da
+   página (veja "atualizarBarraLogo" no script.js) - a "transition" deixa
+   essa mudança suave em vez de pular de tamanho em tamanho. */
 .logo {
   display: block;
-  margin: 0 auto 20px auto;
+  margin: 0 auto;
   max-width: 440px;
   width: 100%;
   transition: max-width 0.1s linear;
@@ -603,6 +635,13 @@ th {
   body {
     margin: 16px auto;
     padding: 0 12px;
+  }
+
+  /* Mesmo ajuste de espaçamento lateral do "body" acima, só que aplicado na
+     barra congelada, que é "fixed" e por isso não herda esse padding dele. */
+  .barra-logo {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   form {
