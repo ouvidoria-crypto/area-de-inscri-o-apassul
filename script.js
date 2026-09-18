@@ -1,5 +1,4 @@
 const formulario = document.getElementById("formInscricao");
-const mensagem = document.getElementById("mensagem");
 const selectCurso = document.getElementById("curso"); // agora é um <input type="hidden">
 const detalhesCurso = document.getElementById("detalhesCurso");
 const btnEnviar = document.getElementById("btnEnviar");
@@ -22,6 +21,121 @@ function esconderConfirmacao() {
 }
 
 overlayConfirmacao.addEventListener("click", esconderConfirmacao);
+
+// ============================================================================
+// Logo que diminui conforme a página é rolada para baixo, e volta a crescer
+// conforme se rola para cima. O tamanho é recalculado a cada pedacinho da
+// rolagem (não é só um "liga/desliga" entre dois tamanhos), então o efeito
+// acompanha o movimento do mouse/dedo em tempo real.
+// ============================================================================
+
+const logo = document.querySelector(".logo");
+const LOGO_TAMANHO_MAXIMO = 440; // igual ao "max-width" original definido no CSS
+const LOGO_TAMANHO_MINIMO = 140; // tamanho do logo já totalmente encolhido
+const LOGO_DISTANCIA_ROLAGEM = 250; // depois de rolar essa distância (em pixels), o logo já está no tamanho mínimo
+
+function atualizarTamanhoLogo() {
+  // "progresso" vai de 0 (topo da página) até 1 (rolou 250px ou mais para baixo)
+  const progresso = Math.min(window.scrollY / LOGO_DISTANCIA_ROLAGEM, 1);
+  const tamanho = LOGO_TAMANHO_MAXIMO - progresso * (LOGO_TAMANHO_MAXIMO - LOGO_TAMANHO_MINIMO);
+  logo.style.maxWidth = `${tamanho}px`;
+}
+
+// O navegador dispara o evento "scroll" dezenas de vezes por segundo -
+// "requestAnimationFrame" agrupa isso para recalcular no máximo uma vez por
+// quadro de tela, o que deixa a animação leve e sem travadas.
+let logoAtualizacaoAgendada = false;
+window.addEventListener("scroll", () => {
+  if (!logoAtualizacaoAgendada) {
+    logoAtualizacaoAgendada = true;
+    requestAnimationFrame(() => {
+      atualizarTamanhoLogo();
+      logoAtualizacaoAgendada = false;
+    });
+  }
+});
+
+atualizarTamanhoLogo(); // já aplica o tamanho certo ao carregar (caso a página recarregue com a rolagem no meio)
+
+// ============================================================================
+// Máscaras e validações específicas de cada campo (Nome, Telefone e CPF)
+// ============================================================================
+
+const campoNome = document.getElementById("nome");
+const campoTelefone = document.getElementById("telefone");
+const campoCPF = document.getElementById("cpf");
+
+// Formata o telefone enquanto a pessoa digita, no padrão (xx) xxxxx-xxxx.
+// "replace(/\D/g, '')" remove tudo que não for dígito, então não importa se
+// a pessoa digitar parênteses, espaço ou colar um número já formatado - o
+// resultado final sempre segue o mesmo padrão.
+function mascararTelefone(valor) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length === 0) return "";
+  if (digitos.length <= 2) return `(${digitos}`;
+  if (digitos.length <= 7) return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
+  return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
+}
+
+campoTelefone.addEventListener("input", () => {
+  campoTelefone.value = mascararTelefone(campoTelefone.value);
+});
+
+// Telefone precisa bater exatamente com o padrão "(xx) xxxxx-xxxx"
+// (DDD de 2 dígitos + celular de 9 dígitos, com o "9" na frente).
+function telefoneValido(valor) {
+  return /^\(\d{2}\) \d{5}-\d{4}$/.test(valor);
+}
+
+// Formata o CPF enquanto digita, no padrão xxx.xxx.xxx-xx usado em
+// praticamente todo site brasileiro.
+function mascararCPF(valor) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length <= 3) return digitos;
+  if (digitos.length <= 6) return `${digitos.slice(0, 3)}.${digitos.slice(3)}`;
+  if (digitos.length <= 9) return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`;
+  return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`;
+}
+
+campoCPF.addEventListener("input", () => {
+  campoCPF.value = mascararCPF(campoCPF.value);
+});
+
+// Confere se o CPF é MATEMATICAMENTE válido - o mesmo cálculo dos dois
+// "dígitos verificadores" que a Receita Federal usa. Não basta ter 11
+// números: eles precisam se encaixar nessa conta.
+function cpfValido(valor) {
+  const digitos = valor.replace(/\D/g, "");
+  if (digitos.length !== 11) return false;
+
+  // CPFs com todos os dígitos iguais (111.111.111-11, por exemplo) passariam
+  // na conta abaixo, mas não são números emitidos de verdade.
+  if (/^(\d)\1{10}$/.test(digitos)) return false;
+
+  function calcularDigitoVerificador(base) {
+    let soma = 0;
+    let peso = base.length + 1;
+    for (const numero of base) {
+      soma += Number(numero) * peso;
+      peso--;
+    }
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  }
+
+  const primeiros9 = digitos.slice(0, 9);
+  const digito1 = calcularDigitoVerificador(primeiros9);
+  const primeiros10 = primeiros9 + digito1;
+  const digito2 = calcularDigitoVerificador(primeiros10);
+
+  return digitos === primeiros10 + String(digito2);
+}
+
+// Nome completo precisa ter mais de 3 caracteres (sem contar espaços nas
+// pontas, por isso o ".trim()").
+function nomeValido(valor) {
+  return valor.trim().length > 3;
+}
 
 let cursosDisponiveis = [];
 
@@ -170,17 +284,16 @@ selectCurso.addEventListener("change", (evento) => {
 function formularioCompleto() {
   const curso = selectCurso.value;
   const empresa = document.getElementById("empresa").value.trim();
-  const nome = document.getElementById("nome").value.trim();
   const email = document.getElementById("email").value.trim();
-  const telefone = document.getElementById("telefone").value.trim();
-  const cpf = document.getElementById("cpf").value.trim();
   const emailRecibo = document.getElementById("emailRecibo").value.trim();
   const aceiteTermos = document.getElementById("aceiteTermos").checked;
   const metodoPagamento = document.querySelector('input[name="metodoPagamento"]:checked');
 
   return Boolean(
-    curso && empresa && nome && email && telefone && cpf &&
-    metodoPagamento && emailRecibo && aceiteTermos
+    curso && empresa && email && emailRecibo && metodoPagamento && aceiteTermos &&
+    nomeValido(campoNome.value) &&
+    telefoneValido(campoTelefone.value) &&
+    cpfValido(campoCPF.value)
   );
 }
 
@@ -195,6 +308,69 @@ function atualizarBotaoEnviar() {
 // manualmente - veja a função "selecionar" lá em cima).
 formulario.addEventListener("input", atualizarBotaoEnviar);
 formulario.addEventListener("change", atualizarBotaoEnviar);
+
+// ============================================================================
+// Balão de erro de validação (mesmo modelo do aviso nativo do navegador,
+// tipo "Inclua um @ no endereço de e-mail" - só que aqui a gente monta o
+// balão na mão, pra funcionar também nos campos personalizados que o
+// navegador não sabe validar sozinho: curso, empresa, pagamento e aceite).
+// ============================================================================
+
+let balaoErroAtual = null;
+
+function esconderBalaoErro() {
+  if (balaoErroAtual) {
+    balaoErroAtual.remove();
+    balaoErroAtual = null;
+  }
+}
+
+// "elemento" é o campo (ou caixa) que está com problema - o balão é
+// posicionado logo abaixo dele. Usamos coordenadas absolutas da página
+// (getBoundingClientRect + scroll atual) em vez de CSS puro porque assim o
+// balão funciona igual não importa onde o elemento esteja no formulário, sem
+// risco de ficar cortado por alguma caixa com "overflow" no meio do caminho.
+function mostrarErroCampo(elemento, texto) {
+  esconderBalaoErro();
+
+  const balao = document.createElement("div");
+  balao.className = "balao-erro";
+  balao.innerHTML = `
+    <div class="balao-erro-cabecalho">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d="M12 3 L22.5 21 H1.5 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="12" y1="10" x2="12" y2="14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="17.5" r="1.1" fill="currentColor"/>
+      </svg>
+      <span>${texto}</span>
+    </div>
+  `;
+  document.body.appendChild(balao);
+
+  const retangulo = elemento.getBoundingClientRect();
+  balao.style.top = `${retangulo.bottom + window.scrollY + 8}px`;
+  balao.style.left = `${retangulo.left + window.scrollX}px`;
+
+  balaoErroAtual = balao;
+
+  // Rola a página até o campo com erro ficar visível, igual o navegador faz
+  // sozinho quando bloqueia o envio de um formulário nativo.
+  elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (typeof elemento.focus === "function") {
+    setTimeout(() => elemento.focus(), 300);
+  }
+}
+
+// O balão some assim que a pessoa mexe em algum campo, clica fora dele, ou
+// quando um novo balão precisa aparecer no lugar - mesmo comportamento do
+// aviso nativo do navegador.
+formulario.addEventListener("input", esconderBalaoErro);
+formulario.addEventListener("change", esconderBalaoErro);
+document.addEventListener("click", (evento) => {
+  if (balaoErroAtual && !balaoErroAtual.contains(evento.target)) {
+    esconderBalaoErro();
+  }
+});
 
 carregarCursos();
 
@@ -215,25 +391,45 @@ formulario.addEventListener("submit", async function (evento) {
   const radioSelecionado = document.querySelector('input[name="metodoPagamento"]:checked');
   const metodoPagamento = radioSelecionado ? radioSelecionado.value : "";
 
-  // Validação de todos os campos obrigatórios, um por um, com mensagens específicas
+  // Validação de todos os campos obrigatórios, um por um, cada uma mostrando
+  // o balão de erro bem embaixo do campo específico que precisa ser corrigido.
   if (!curso) {
-    mostrarErro("Selecione um curso.");
+    mostrarErroCampo(document.getElementById("botaoCurso"), "Selecione um curso.");
     return;
   }
-  if (!empresa || !nome || !email || !telefone || !cpf) {
-    mostrarErro("Preencha todos os dados do participante.");
+  if (!empresa) {
+    mostrarErroCampo(document.getElementById("botaoEmpresa"), "Selecione a empresa.");
+    return;
+  }
+  if (!nomeValido(nome)) {
+    mostrarErroCampo(campoNome, "O nome completo deve ter mais de 3 caracteres.");
+    return;
+  }
+  if (!email) {
+    mostrarErroCampo(document.getElementById("email"), "Informe o e-mail do participante.");
+    return;
+  }
+  if (!telefoneValido(telefone)) {
+    mostrarErroCampo(campoTelefone, "O telefone deve estar no formato (xx) xxxxx-xxxx, com o DDD.");
+    return;
+  }
+  if (!cpfValido(cpf)) {
+    mostrarErroCampo(campoCPF, "Informe um CPF válido.");
     return;
   }
   if (!metodoPagamento) {
-    mostrarErro("Selecione um método de pagamento.");
+    mostrarErroCampo(formulario.querySelector("fieldset"), "Selecione um método de pagamento.");
     return;
   }
   if (!emailRecibo) {
-    mostrarErro("Informe o e-mail para envio do recibo.");
+    mostrarErroCampo(document.getElementById("emailRecibo"), "Informe o e-mail para envio do recibo.");
     return;
   }
   if (!aceiteTermos) {
-    mostrarErro("Você precisa aceitar os termos de inscrição para continuar.");
+    mostrarErroCampo(
+      document.querySelector(".aceite"),
+      "Você precisa aceitar os termos de inscrição para continuar."
+    );
     return;
   }
 
@@ -250,7 +446,7 @@ formulario.addEventListener("submit", async function (evento) {
     const dados = await resposta.json();
 
     if (resposta.ok) {
-      mensagem.textContent = "";
+      esconderBalaoErro();
       mostrarConfirmacao();
       formulario.reset();
       menuCurso.resetar();
@@ -262,15 +458,10 @@ formulario.addEventListener("submit", async function (evento) {
       // com os campos já vazios de novo.
       atualizarBotaoEnviar();
     } else {
-      mostrarErro(dados.erro || "Não foi possível enviar a inscrição.");
+      mostrarErroCampo(btnEnviar, dados.erro || "Não foi possível enviar a inscrição.");
     }
   } catch (erro) {
-    mostrarErro("Erro de conexão com o servidor. Tente novamente.");
+    mostrarErroCampo(btnEnviar, "Erro de conexão com o servidor. Tente novamente.");
     console.error(erro);
   }
 });
-
-function mostrarErro(texto) {
-  mensagem.textContent = texto;
-  mensagem.style.color = "red";
-}

@@ -160,10 +160,10 @@
     <input type="email" id="email" name="email"><br><br>
 
     <label for="telefone">Telefone do Participante:</label><br>
-    <input type="tel" id="telefone" name="telefone"><br><br>
+    <input type="tel" id="telefone" name="telefone" placeholder="(51) 99999-9999" maxlength="15" inputmode="numeric"><br><br>
 
     <label for="cpf">CPF do Participante para emissão de certificado:</label><br>
-    <input type="text" id="cpf" name="cpf"><br><br>
+    <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric"><br><br>
 
     <fieldset>
       <legend>Selecione o Método de Pagamento</legend>
@@ -218,8 +218,6 @@
 
     <button type="submit" id="btnEnviar" class="botao-enviar">Enviar inscrição</button>
   </form>
-
-  <p id="mensagem"></p>
 
   <!-- Aparece por cima de tudo quando a inscrição é enviada com sucesso.
        Começa "hidden" (escondido) e o script.js troca isso ao enviar. -->

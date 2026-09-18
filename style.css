@@ -19,12 +19,16 @@ body.pagina-admin {
 }
 
 /* Logo no topo da página: "block" + "margin: 0 auto" centraliza a imagem
-   horizontalmente (o mesmo truque usado no <body> para centralizar a página) */
+   horizontalmente (o mesmo truque usado no <body> para centralizar a página).
+   O "max-width" é o que o script.js altera aos poucos conforme a rolagem da
+   página (veja "atualizarTamanhoLogo" lá) - a "transition" deixa essa
+   mudança suave em vez de pular de tamanho em tamanho. */
 .logo {
   display: block;
   margin: 0 auto 20px auto;
   max-width: 440px;
   width: 100%;
+  transition: max-width 0.1s linear;
 }
 
 h1 {
@@ -525,6 +529,70 @@ th {
   text-decoration: underline;
 }
 
+/* Balão de erro de validação: reproduz o aviso nativo do navegador (aquele
+   balãozinho laranja que aparece embaixo de um campo tipo e-mail quando
+   falta alguma coisa), só que também funciona nos campos personalizados
+   (curso, empresa, pagamento, aceite) que o navegador não sabe validar
+   sozinho. O script.js cria esse balão na hora do erro e o posiciona
+   exatamente embaixo do campo problemático (por isso "position: absolute" -
+   a posição de "top"/"left" é calculada e aplicada via JavaScript). */
+.balao-erro {
+  position: absolute;
+  z-index: 50;
+  max-width: 320px;
+  background-color: #ffffff;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  animation: apareceBalao 0.15s ease;
+}
+
+/* Setinha apontando pra cima, na direção do campo com erro - mesmo efeito
+   do balão nativo do navegador */
+.balao-erro::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 16px;
+  width: 12px;
+  height: 12px;
+  background-color: #e8710a;
+  border: 1px solid #c9c9c9;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 2px 0 0 0;
+  transform: rotate(45deg);
+}
+
+.balao-erro-cabecalho {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #e8710a;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: 3px;
+}
+
+.balao-erro-cabecalho svg {
+  flex-shrink: 0;
+}
+
+@keyframes apareceBalao {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ==========================================================================
    Ajustes pra tela pequena (celular). "@media (max-width: 600px)" faz essas
    regras só valerem quando a tela é mais estreita que 600px - o resto do
@@ -562,5 +630,10 @@ th {
 
   .texto-confirmacao {
     font-size: 16px;
+  }
+
+  /* Em telas estreitas o balão não pode ser mais largo que a própria tela */
+  .balao-erro {
+    max-width: calc(100vw - 32px);
   }
 }
