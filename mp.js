@@ -119,6 +119,7 @@ async function criarPreferenciaPagamento({
       excluded_payment_types: [
         { id: "credit_card" },
         { id: "debit_card" },
+        { id: "prepaid_card" },
         { id: "bank_transfer" },
       ],
       installments: 1,
@@ -128,6 +129,7 @@ async function criarPreferenciaPagamento({
       excluded_payment_types: [
         { id: "credit_card" },
         { id: "debit_card" },
+        { id: "prepaid_card" },
         { id: "ticket" },
       ],
       installments: 1,

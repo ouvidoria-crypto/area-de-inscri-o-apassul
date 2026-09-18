@@ -3,6 +3,12 @@ const express = require("express");
 const basicAuth = require("express-basic-auth");
 const db = require("./db");
 const { criarPreferenciaPagamento, consultarPagamento } = require("./mp");
+const {
+  liberarAcessoInscrito,
+  verificarSenha,
+  hashSenha,
+  gerarTokenSessao,
+} = require("./auth_aluno");
 
 const app = express();
 
@@ -208,6 +214,14 @@ app.all("/webhook/mercadopago", async (req, res) => {
             payment.date_approved || new Date().toISOString(),
             inscricaoId
           );
+
+          // Se o pagamento foi aprovado (Pix ou Boleto), gera as credenciais e envia o e-mail automaticamente
+          if (statusMapeado === "pago") {
+            const baseUrl = getBaseUrl(req);
+            liberarAcessoInscrito(db, inscricaoId, baseUrl).catch((errEmail) => {
+              console.error("[Acesso Aluno] Falha ao disparar e-mail de credenciais:", errEmail.message);
+            });
+          }
         }
       }
     } catch (err) {
@@ -225,7 +239,7 @@ app.get("/admin/inscricoes", protegerAdmin, (req, res) => {
 });
 
 // Atualização manual do status de pagamento pelo administrador (ex: confirmação de depósito bancário)
-app.patch("/admin/inscricoes/:id/status", protegerAdmin, (req, res) => {
+app.patch("/admin/inscricoes/:id/status", protegerAdmin, async (req, res) => {
   const { id } = req.params;
   const { status_pagamento } = req.body;
 
@@ -248,7 +262,30 @@ app.patch("/admin/inscricoes/:id/status", protegerAdmin, (req, res) => {
     WHERE id = ?
   `).run(status_pagamento, dataPagamento, id);
 
-  res.json({ sucesso: true, id, status_pagamento });
+  // Se marcado como pago manualmente, gera a senha e envia o e-mail de acesso
+  let dadosAcesso = null;
+  if (status_pagamento === "pago") {
+    try {
+      const baseUrl = getBaseUrl(req);
+      dadosAcesso = await liberarAcessoInscrito(db, id, baseUrl);
+    } catch (e) {
+      console.error("[Acesso Aluno] Erro ao liberar acesso manual:", e.message);
+    }
+  }
+
+  res.json({ sucesso: true, id, status_pagamento, dadosAcesso });
+});
+
+// Reenvio manual dos dados de acesso por e-mail pelo Administrador
+app.post("/admin/inscricoes/:id/reenviar-acesso", protegerAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const baseUrl = getBaseUrl(req);
+    const resultado = await liberarAcessoInscrito(db, id, baseUrl);
+    res.json({ sucesso: true, resultado });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 app.get("/admin/resumo", protegerAdmin, (req, res) => {
@@ -261,6 +298,154 @@ app.get("/admin/resumo", protegerAdmin, (req, res) => {
     )
     .all();
   res.json(resumo);
+});
+
+// ==========================================
+// ROTAS DA ÁREA DO INSCRITO (ALUNO)
+// ==========================================
+
+function extrairTokenAluno(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7).trim();
+  }
+  return null;
+}
+
+function autenticarAluno(req, res, next) {
+  const token = extrairTokenAluno(req);
+  if (!token) {
+    return res.status(401).json({ erro: "Sessão não informada ou expirada. Faça login novamente." });
+  }
+
+  const aluno = db.prepare(`
+    SELECT inscricoes.*, cursos.nome AS nome_curso, cursos.descricao AS descricao_curso,
+           cursos.carga_horaria, cursos.data_evento, cursos.requisitos
+    FROM inscricoes
+    LEFT JOIN cursos ON inscricoes.curso = cursos.id
+    WHERE inscricoes.token_sessao = ? AND inscricoes.status_pagamento = 'pago'
+  `).get(token);
+
+  if (!aluno) {
+    return res.status(401).json({ erro: "Sessão inválida ou inscrição pendente de confirmação." });
+  }
+
+  req.aluno = aluno;
+  next();
+}
+
+// Login na Área do Inscrito (Login é o e-mail, senha é a enviada ou redefinida)
+app.post("/api/aluno/login", (req, res) => {
+  const { email, senha } = req.body;
+
+  if (!email || !senha) {
+    return res.status(400).json({ erro: "Por favor, preencha o e-mail e a senha." });
+  }
+
+  const emailNormalizado = email.trim().toLowerCase();
+
+  // Busca inscrições pagas deste e-mail
+  const inscricao = db.prepare(`
+    SELECT * FROM inscricoes
+    WHERE LOWER(email) = ?
+    ORDER BY id DESC LIMIT 1
+  `).get(emailNormalizado);
+
+  if (!inscricao) {
+    return res.status(404).json({
+      erro: "Nenhuma inscrição encontrada para este e-mail. Verifique a digitação.",
+    });
+  }
+
+  if (inscricao.status_pagamento !== "pago") {
+    return res.status(403).json({
+      erro: "Seu pagamento ainda está em processamento ou aguardando compensação bancária. O acesso é liberado assim que o pagamento for confirmado.",
+    });
+  }
+
+  if (!inscricao.senha_hash) {
+    return res.status(400).json({
+      erro: "As credenciais ainda não foram geradas. Entre em contato com a Apassul.",
+    });
+  }
+
+  const senhaValida = verificarSenha(senha.trim(), inscricao.senha_hash);
+  if (!senhaValida) {
+    return res.status(401).json({ erro: "Senha incorreta. Verifique os caracteres recebidos no e-mail." });
+  }
+
+  const tokenSessao = gerarTokenSessao();
+  const agora = new Date().toISOString();
+
+  db.prepare(`
+    UPDATE inscricoes
+    SET token_sessao = ?, ultimo_login = ?
+    WHERE id = ?
+  `).run(tokenSessao, agora, inscricao.id);
+
+  res.json({
+    sucesso: true,
+    token: tokenSessao,
+    nome: inscricao.nome,
+    email: inscricao.email,
+    trocaSenhaObrigatoria: Boolean(inscricao.troca_senha_obrigatoria),
+  });
+});
+
+// Troca obrigatória (ou voluntária) de senha
+app.post("/api/aluno/trocar-senha", autenticarAluno, (req, res) => {
+  const { novaSenha, confirmacaoSenha } = req.body;
+
+  if (!novaSenha || novaSenha.trim().length < 6) {
+    return res.status(400).json({ erro: "A nova senha deve ter no mínimo 6 caracteres." });
+  }
+
+  if (novaSenha !== confirmacaoSenha) {
+    return res.status(400).json({ erro: "A confirmação de senha não confere." });
+  }
+
+  const novoHash = hashSenha(novaSenha.trim());
+
+  db.prepare(`
+    UPDATE inscricoes
+    SET senha_hash = ?,
+        senha_plana_inicial = NULL,
+        troca_senha_obrigatoria = 0
+    WHERE id = ?
+  `).run(novoHash, req.aluno.id);
+
+  res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
+});
+
+// Obter dados completos da inscrição e do curso do aluno logado
+app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
+  const a = req.aluno;
+  res.json({
+    id: a.id,
+    nome: a.nome,
+    email: a.email,
+    empresa: a.empresa,
+    telefone: a.telefone,
+    cpf: a.cpf,
+    status_pagamento: a.status_pagamento,
+    data_pagamento: a.data_pagamento,
+    troca_senha_obrigatoria: Boolean(a.troca_senha_obrigatoria),
+    curso: {
+      id: a.curso,
+      nome: a.nome_curso || a.curso,
+      descricao: a.descricao_curso,
+      carga_horaria: a.carga_horaria,
+      data_evento: a.data_evento,
+      requisitos: a.requisitos,
+      preco: a.valor,
+    },
+  });
+});
+
+// Logout da Área do Inscrito
+app.post("/api/aluno/logout", autenticarAluno, (req, res) => {
+  db.prepare("UPDATE inscricoes SET token_sessao = NULL WHERE id = ?").run(req.aluno.id);
+  res.json({ sucesso: true });
 });
 
 app.listen(PORT, "0.0.0.0", () => {

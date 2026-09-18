@@ -59,6 +59,13 @@ adicionarColuna("inscricoes", "mp_preference_id", "TEXT");
 adicionarColuna("inscricoes", "mp_payment_id", "TEXT");
 adicionarColuna("inscricoes", "mp_init_point", "TEXT");
 adicionarColuna("inscricoes", "data_pagamento", "TEXT");
+adicionarColuna("inscricoes", "senha_hash", "TEXT");
+adicionarColuna("inscricoes", "senha_plana_inicial", "TEXT");
+adicionarColuna("inscricoes", "troca_senha_obrigatoria", "INTEGER DEFAULT 1");
+adicionarColuna("inscricoes", "email_credenciais_enviado", "INTEGER DEFAULT 0");
+adicionarColuna("inscricoes", "data_envio_credenciais", "TEXT");
+adicionarColuna("inscricoes", "ultimo_login", "TEXT");
+adicionarColuna("inscricoes", "token_sessao", "TEXT");
 
 adicionarColuna("cursos", "preco", "REAL DEFAULT 3200.00");
 adicionarColuna("cursos", "descricao", "TEXT");

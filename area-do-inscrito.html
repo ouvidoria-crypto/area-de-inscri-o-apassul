@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Área do Inscrito - Apassul</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Estilos específicos da Área do Inscrito */
+    .pagina-aluno {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 0 20px 60px;
+    }
+    .cabecalho-aluno {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0 24px;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 30px;
+    }
+    .logo-aluno {
+      max-height: 50px;
+      width: auto;
+    }
+    .link-voltar-topo {
+      color: #2e6b3e;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .link-voltar-topo:hover {
+      text-decoration: underline;
+    }
+    .card-login-aluno {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 36px 32px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      max-width: 480px;
+      margin: 40px auto;
+    }
+    .titulo-aluno {
+      color: #2e6b3e;
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    .subtitulo-aluno {
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0 0 24px;
+    }
+    .grupo-campo {
+      margin-bottom: 20px;
+    }
+    .grupo-campo label {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    .grupo-campo input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .grupo-campo input:focus {
+      border-color: #2e6b3e;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(46,107,62,0.15);
+    }
+    .btn-aluno-acao {
+      width: 100%;
+      background-color: #2e6b3e;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .btn-aluno-acao:hover {
+      background-color: #235430;
+    }
+    .btn-aluno-acao:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .alerta-erro {
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+    .alerta-sucesso {
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+    .caixa-info-acesso {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 24px;
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    /* Painel do Aluno logado */
+    .painel-aluno-topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .saudacao-aluno h2 {
+      margin: 0;
+      font-size: 22px;
+      color: #0f172a;
+    }
+    .saudacao-aluno p {
+      margin: 4px 0 0;
+      font-size: 14px;
+      color: #64748b;
+    }
+    .acoes-topo-aluno {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-secundario-aluno {
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-secundario-aluno:hover {
+      background-color: #f8fafc;
+    }
+    .card-painel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .card-painel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .card-painel-header h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-confirmado {
+      background-color: #eaf5ec;
+      color: #2e6b3e;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .grid-dados-aluno {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .dado-item .rotulo {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .dado-item .valor {
+      font-size: 15px;
+      color: #0f172a;
+      font-weight: 500;
+    }
+    .box-aviso-senha {
+      background-color: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .box-aviso-senha p {
+      margin: 0;
+      font-size: 14px;
+      color: #92400e;
+      line-height: 1.5;
+    }
+
+    /* Modal de Troca de Senha */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-conteudo {
+      background: #ffffff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 440px;
+      padding: 28px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #comprovanteMatricula, #comprovanteMatricula * { visibility: visible; }
+      #comprovanteMatricula { position: absolute; left: 0; top: 0; width: 100%; }
+      .acoes-topo-aluno, .btn-aluno-acao, .btn-secundario-aluno, .cabecalho-aluno { display: none !important; }
+    }
+  </style>
+</head>
+<body class="pagina-aluno">
+
+  <!-- Cabeçalho Institucional -->
+  <header id="cabecalhoAluno" class="cabecalho-aluno">
+    <a href="/" title="Voltar à página inicial">
+      <img id="imgLogoApassul" src="logo-apassul.png" alt="Logo Apassul" class="logo-aluno">
+    </a>
+    <a id="linkVoltarInscricao" href="/" class="link-voltar-topo">
+      ← Página de Inscrição
+    </a>
+  </header>
+
+  <!-- ======================================================= -->
+  <!-- SEÇÃO 1: FORMULÁRIO DE LOGIN DO ALUNO                    -->
+  <!-- ======================================================= -->
+  <main id="secaoLogin" class="card-login-aluno">
+    <h1 id="tituloLoginAluno" class="titulo-aluno">Área do Inscrito</h1>
+    <p id="subtituloLoginAluno" class="subtitulo-aluno">
+      Informe seu e-mail cadastrado na inscrição e a senha de 8 dígitos enviada após a confirmação do pagamento.
+    </p>
+
+    <div id="msgErroLogin" class="alerta-erro" hidden></div>
+    <div id="msgSucessoLogin" class="alerta-sucesso" hidden></div>
+
+    <form id="formLoginAluno" novalidate>
+      <div class="grupo-campo">
+        <label for="inputEmailAluno">E-mail do Participante:</label>
+        <input
+          type="email"
+          id="inputEmailAluno"
+          name="email"
+          required
+          placeholder="exemplo@email.com.br"
+          autocomplete="username"
+        >
+      </div>
+
+      <div class="grupo-campo">
+        <label for="inputSenhaAluno">Senha de Acesso:</label>
+        <input
+          type="password"
+          id="inputSenhaAluno"
+          name="senha"
+          required
+          placeholder="Senha recebida no e-mail"
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button type="submit" id="btnEntrarAluno" class="btn-aluno-acao">
+        Entrar na Área do Inscrito
+      </button>
+    </form>
+
+    <div id="boxAjudaLogin" class="caixa-info-acesso">
+      <strong>ℹ️ Como recebo minha senha?</strong>
+      <p style="margin: 6px 0 0;">
+        Após a compensação do pagamento via Pix ou Boleto pelo Mercado Pago, nosso sistema envia automaticamente seu login e senha temporária de 8 caracteres para o e-mail informado no formulário.
+      </p>
+      <p style="margin: 6px 0 0;">
+        Dúvidas ou suporte? Entre em contato pelo e-mail: <strong>ouvidoria@apassul.com.br</strong>.
+      </p>
+    </div>
+  </main>
+
+  <!-- ======================================================= -->
+  <!-- SEÇÃO 2: PAINEL PRINCIPAL DO ALUNO (APÓS LOGIN)          -->
+  <!-- ======================================================= -->
+  <section id="secaoPainelAluno" hidden>
+    <div id="topoPainelAluno" class="painel-aluno-topo">
+      <div class="saudacao-aluno">
+        <h2 id="saudacaoNomeAluno">Olá, Participante</h2>
+        <p id="subtituloStatusAluno">Matrícula confirmada no treinamento Apassul</p>
+      </div>
+
+      <div class="acoes-topo-aluno">
+        <button id="btnAbrirTrocaSenha" class="btn-secundario-aluno" type="button">
+          🔑 Alterar Senha
+        </button>
+        <button id="btnImprimirComprovante" class="btn-secundario-aluno" type="button">
+          🖨️ Imprimir Comprovante
+        </button>
+        <button id="btnSairAluno" class="btn-secundario-aluno" type="button" style="color: #b91c1c;">
+          Sair
+        </button>
+      </div>
+    </div>
+
+    <!-- Card 1: Curso e Confirmação -->
+    <div id="cardCursoAluno" class="card-painel">
+      <div class="card-painel-header">
+        <h3 id="tituloNomeCurso">Carregando informações do treinamento...</h3>
+        <span id="badgeMatriculaConfirmada" class="badge-confirmado">
+          ✓ Pagamento e Inscrição Confirmados
+        </span>
+      </div>
+
+      <div id="descricaoCursoAluno" style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px;"></div>
+
+      <div class="grid-dados-aluno">
+        <div class="dado-item">
+          <div class="rotulo">Data do Treinamento</div>
+          <div id="dadoDataCurso" class="valor">-</div>
+        </div>
+        <div class="dado-item">
+          <div class="rotulo">Carga Horária</div>
+          <div id="dadoCargaHoraria" class="valor">-</div>
+        </div>
+        <div class="dado-item">
+          <div class="rotulo">Investimento Pago</div>
+          <div id="dadoValorCurso" class="valor">R$ 3.200,00</div>
+        </div>
+        <div class="dado-item">
+          <div class="rotulo">Data da Confirmação</div>
+          <div id="dadoDataPagamento" class="valor">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Dados do Participante Cadastrado -->
+    <div id="cardDadosParticipante" class="card-painel">
+      <div class="card-painel-header">
+        <h3>Seus Dados Cadastrados</h3>
+      </div>
+
+      <div class="grid-dados-aluno">
+        <div class="dado-item">
+          <div class="rotulo">Nome Completo</div>
+          <div id="dadoNomeParticipante" class="valor">-</div>
+        </div>
+        <div class="dado-item">
+          <div class="rotulo">CPF</div>
+          <div id="dadoCpfParticipante" class="valor">-</div>
+        </div>
+        <div class="dado-item">
+          <div class="rotulo">E-mail</div>
+          <div id="dadoEmailParticipante" class="valor">-</div>
+        </div>
+        <div class="dado-item">
+          <div class="rotulo">Telefone / WhatsApp</div>
+          <div id="dadoTelefoneParticipante" class="valor">-</div>
+        </div>
+        <div class="dado-item" style="grid-column: 1 / -1;">
+          <div class="rotulo">Empresa / Instituição</div>
+          <div id="dadoEmpresaParticipante" class="valor">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Informações das Aulas e Materiais -->
+    <div id="cardMateriaisAluno" class="card-painel">
+      <div class="card-painel-header">
+        <h3>Acesso às Aulas e Comunicações</h3>
+      </div>
+      <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px;">
+        Os links da sala de transmissão ao vivo (ou endereço do local presencial) e as apostilas oficiais serão disponibilizados aos participantes nesta área antes do início das atividades.
+      </p>
+      <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155;">
+        📢 <strong>Aviso Importante:</strong> Mantenha seu e-mail e telefone atualizados. Qualquer comunicado urgente será enviado diretamente pela coordenação da Apassul.
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= -->
+  <!-- MODAL: DEFINIÇÃO / TROCA DE SENHA                        -->
+  <!-- ======================================================= -->
+  <div id="modalTrocaSenha" class="modal-overlay" hidden>
+    <div class="modal-conteudo">
+      <h3 id="tituloModalSenha" style="margin: 0 0 8px; color: #0f172a; font-size: 20px;">
+        Cadastrar Nova Senha
+      </h3>
+      <p id="subtituloModalSenha" style="margin: 0 0 20px; font-size: 14px; color: #64748b; line-height: 1.5;">
+        Por motivos de segurança em seu primeiro acesso, defina sua senha pessoal definitiva.
+      </p>
+
+      <div id="msgErroModalSenha" class="alerta-erro" hidden></div>
+      <div id="msgSucessoModalSenha" class="alerta-sucesso" hidden></div>
+
+      <form id="formTrocaSenha" novalidate>
+        <div class="grupo-campo">
+          <label for="inputNovaSenha">Nova Senha (mínimo 6 dígitos):</label>
+          <input
+            type="password"
+            id="inputNovaSenha"
+            name="novaSenha"
+            required
+            minlength="6"
+            placeholder="Digite sua nova senha"
+            autocomplete="new-password"
+          >
+        </div>
+
+        <div class="grupo-campo">
+          <label for="inputConfirmaSenha">Confirme a Nova Senha:</label>
+          <input
+            type="password"
+            id="inputConfirmaSenha"
+            name="confirmacaoSenha"
+            required
+            minlength="6"
+            placeholder="Repita a nova senha"
+            autocomplete="new-password"
+          >
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 24px;">
+          <button
+            type="button"
+            id="btnCancelarTrocaSenha"
+            class="btn-secundario-aluno"
+            style="flex: 1; justify-content: center;"
+            hidden
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btnSalvarNovaSenha"
+            class="btn-aluno-acao"
+            style="flex: 2;"
+          >
+            Salvar e Continuar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="aluno.js"></script>
+</body>
+</html>

@@ -108,6 +108,18 @@ async function carregarPainel() {
           <span class="badge-status ${statusAtual}">${statusLabel}</span>
           ${inscricao.mp_payment_id ? `<br><small class="texto-mp-id">MP #${inscricao.mp_payment_id}</small>` : ""}
         </td>
+        <td>
+          ${
+            statusAtual === "pago"
+              ? `<div style="font-size: 12px; line-height: 1.4;">
+                  ${inscricao.email_credenciais_enviado ? '<span style="color: #166534; font-weight:600;">✉️ E-mail enviado</span>' : '<span style="color: #ca8a04; font-weight:600;">⚠️ E-mail pendente</span>'}
+                  ${inscricao.senha_plana_inicial ? `<br><small>Senha inicial: <code>${inscricao.senha_plana_inicial}</code></small>` : ""}
+                  ${inscricao.troca_senha_obrigatoria === 0 ? '<br><small style="color: #2e6b3e;">(Senha alterada)</small>' : ""}
+                  <br><button type="button" class="btn-reenviar-acesso" data-id="${inscricao.id}" style="margin-top: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">Reenviar Acesso</button>
+                 </div>`
+              : '<span style="color: #94a3b8; font-size: 12px;">Liberado após pgto</span>'
+          }
+        </td>
         <td>${inscricao.email_recibo || "-"}</td>
         <td>${dataFormatada}</td>
         <td>
@@ -127,6 +139,34 @@ async function carregarPainel() {
         const id = e.target.dataset.id;
         const novoStatus = e.target.value;
         alterarStatus(id, novoStatus);
+      });
+    });
+
+    // Conecta botão de reenvio de credenciais
+    document.querySelectorAll(".btn-reenviar-acesso").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.dataset.id;
+        btn.disabled = true;
+        btn.textContent = "Enviando...";
+        try {
+          const res = await fetch(`/admin/inscricoes/${id}/reenviar-acesso`, {
+            method: "POST",
+            credentials: "include",
+          });
+          const dados = await res.json();
+          if (res.ok) {
+            alert(`Acesso processado com sucesso para ${dados.resultado.email}! Senha: ${dados.resultado.senhaGerada}`);
+            carregarPainel();
+          } else {
+            alert(dados.erro || "Falha ao reenviar acesso.");
+            btn.disabled = false;
+            btn.textContent = "Reenviar Acesso";
+          }
+        } catch (err) {
+          alert("Erro de comunicação com o servidor.");
+          btn.disabled = false;
+          btn.textContent = "Reenviar Acesso";
+        }
       });
     });
 
