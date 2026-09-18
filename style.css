@@ -487,8 +487,8 @@ th {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: justify;
+  justify-content: justify;
   z-index: 100;
   cursor: pointer;
 }
@@ -502,7 +502,7 @@ th {
   border: 2px solid #2e6b3e;
   border-radius: 12px;
   padding: 36px 48px;
-  text-align: center;
+  text-align: justify;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   cursor: default;
   animation: entradaSuave 0.3s ease;
