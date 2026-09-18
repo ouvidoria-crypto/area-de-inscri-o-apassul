@@ -1,17 +1,35 @@
 /* Cada bloco abaixo é uma "regra": seletor { propriedade: valor; } */
 
 body {
-  /* Isso afeta a página inteira, porque <body> envolve tudo */
-  font-family: Arial, sans-serif;   /* tipo de letra */
-  background-color: #f4f6f4;        /* cor de fundo (código hexadecimal) */
-  color: #222;                      /* cor do texto */
-  max-width: 600px;                 /* a página não fica mais larga que isso */
-  margin: 40px auto;                /* centraliza o bloco na tela */
+  font-family: Arial, sans-serif;
+  background-color: #f4f6f4;
+  color: #222;
+  max-width: 800px;  /* mais largo que o padrão do Google Forms (~640px) */
+  margin: 40px auto;
   padding: 0 20px;
 }
 
+/* O painel admin tem tabelas com muitas colunas (9, no caso da lista de
+   inscritos), então ele usa uma largura maior que a página de inscrição —
+   quase a largura toda da tela (95%), pra caber sem precisar rolar.
+   Continua centralizado porque herda o "margin: 40px auto" do body acima. */
+body.pagina-admin {
+  max-width: 1800px;
+  width: 95%;
+}
+
+/* Logo no topo da página: "block" + "margin: 0 auto" centraliza a imagem
+   horizontalmente (o mesmo truque usado no <body> para centralizar a página) */
+.logo {
+  display: block;
+  margin: 0 auto 20px auto;
+  max-width: 440px;
+  width: 100%;
+}
+
 h1 {
-  color: #2e6b3e;   /* um verde, lembrando o tema agro da Apassul */
+  color: #2e6b3e;
+  text-align: left;
 }
 
 h2 {
@@ -22,23 +40,151 @@ h2 {
 
 form {
   background-color: #ffffff;
-  padding: 20px;
-  border-radius: 8px;         /* cantos arredondados */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);  /* sombra leve */
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 label {
   font-weight: bold;
 }
 
-input, select {
+/* Antes esta regra pegava TODO <input>, inclusive radio e checkbox, esticando
+   eles feito caixa de texto. Agora só se aplica aos tipos de campo de texto. */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+select {
   width: 100%;
   padding: 8px;
   margin-top: 4px;
   margin-bottom: 12px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  box-sizing: border-box;  /* garante que o padding não estoure a largura */
+  box-sizing: border-box;
+}
+
+/* Radio e checkbox ficam do tamanho normal, alinhados com o texto do label.
+   "appearance: none" remove o desenho padrão do navegador (a bolinha do
+   radio), para a gente desenhar o nosso próprio quadrado no lugar. */
+input[type="radio"],
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 2px solid #999;
+  border-radius: 3px;   /* levemente arredondado, mas continua um quadrado */
+  position: relative;
+  top: -2px;   /* ajuste fino, calibrado ao vivo pelo DevTools para alinhar com o topo da letra */
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+input[type="radio"]:checked,
+input[type="checkbox"]:checked {
+  background-color: #2e6b3e;
+  border-color: #2e6b3e;
+}
+
+/* Desenha um "check" (✓) branco dentro do quadrado, só quando marcado.
+   É feito com bordas giradas 45 graus, um truque comum de CSS. */
+input[type="radio"]:checked::after,
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: -1px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+legend {
+  font-weight: bold;
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+/* Cada opção de pagamento vira um retângulo próprio, igual aos outros
+   campos da página (mesma borda, cantos arredondados, espaçamento) */
+fieldset label {
+  font-weight: normal;
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background-color: #ffffff;
+  cursor: pointer;
+  text-align: justify;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+fieldset label:hover {
+  background-color: #f4f6f4;
+}
+
+fieldset label:has(input:checked) {
+  border-color: #2e6b3e;
+  background-color: #f0f4f0;
+}
+
+/* Quadro com os termos e condições */
+.termos {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.termos h3 {
+  margin-top: 0;
+  color: #2e6b3e;
+}
+
+.termos ul {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+/* Label do checkbox final: texto normal, mas vira negrito e verde quando marcado */
+.aceite {
+  font-weight: normal;
+  display: flex;
+  align-items: flex-start;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px 12px;
+  background-color: #ffffff;
+  cursor: pointer;
+  text-align: justify;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.aceite:hover {
+  background-color: #f4f6f4;
+}
+
+.aceite:has(input:checked) {
+  border-color: #2e6b3e;
+  background-color: #f0f4f0;
+  font-weight: bold;
+  color: #2e6b3e;
 }
 
 button {
@@ -47,30 +193,115 @@ button {
   padding: 10px 18px;
   border: none;
   border-radius: 4px;
-  cursor: pointer;   /* mãozinha ao passar o mouse */
+  cursor: pointer;
   font-size: 15px;
 }
 
 button:hover {
-  /* :hover = estilo aplicado só quando o mouse está em cima */
   background-color: #244f2e;
 }
 
-/* Estilos para as tabelas do painel administrativo */
+/* Linha com o título da seção e o botão de exportar lado a lado */
+.cabecalho-secao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cabecalho-secao h2 {
+  flex: 1;
+}
+
+.btn-secundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #ffffff;
+  color: #2e6b3e;
+  border: 2px solid #2e6b3e;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-secundario:hover,
+.btn-secundario:active,
+.btn-secundario:focus-visible {
+  background-color: #2e6b3e;
+  color: #ffffff;
+}
+
+.icone-csv {
+  flex-shrink: 0;
+}
+
+/* Envolve cada tabela do admin. Se a tabela precisar de mais espaço do que
+   a tela tem, cria uma barra de rolagem horizontal só dentro dessa caixa. */
+.tabela-scroll {
+  overflow-x: auto;
+  margin-bottom: 30px;
+}
+
 table {
   width: 100%;
-  border-collapse: collapse;  /* remove espaço duplicado entre as bordas das células */
+  border-collapse: collapse;
   background-color: #ffffff;
-  margin-bottom: 30px;
 }
 
 th, td {
   text-align: left;
   padding: 8px 10px;
   border-bottom: 1px solid #ddd;
+  white-space: nowrap;
 }
 
 th {
   background-color: #2e6b3e;
   color: white;
+}
+
+#detalhesCurso {
+  background-color: #f0f4f0;
+  border: 2px solid #2e6b3e;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+@keyframes entradaSuave {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#detalhesCurso.animar {
+  animation: entradaSuave 0.35s ease;
+}
+
+#detalhesCurso p {
+  margin: 4px 0;
+}
+
+.nome-curso {
+  font-weight: bold;
+  font-size: 18px;
+  color: #2e6b3e;
+  margin: 4px 0 8px 0;
+}
+
+.descricao-curso {
+  white-space: pre-line;
+  line-height: 1.5;
+  text-align: justify;
 }

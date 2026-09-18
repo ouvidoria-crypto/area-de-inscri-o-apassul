@@ -4,9 +4,6 @@ const db = require("./db");
 
 const app = express();
 
-// process.env são "variáveis de ambiente": valores configurados FORA do código,
-// no próprio serviço onde o programa roda. Em vez de escrever a porta ou a senha
-// direto aqui, lemos daqui — e se não existir (como no seu PC agora), usamos um valor padrão.
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "apassul2026";
@@ -20,11 +17,45 @@ const protegerAdmin = basicAuth({
   unauthorizedResponse: "Acesso negado.",
 });
 
-app.post("/inscricoes", (req, res) => {
-  const { nome, email, curso } = req.body;
+app.get("/cursos", (req, res) => {
+  const cursos = db
+    .prepare(
+      `SELECT id, nome, descricao, carga_horaria, data_evento, requisitos, vagas,
+        (SELECT COUNT(*) FROM inscricoes WHERE inscricoes.curso = cursos.id) AS inscritos
+       FROM cursos`
+    )
+    .all();
 
-  if (!nome || !email || !curso) {
-    return res.status(400).json({ erro: "Preencha nome, e-mail e curso." });
+  const comVagasRestantes = cursos.map((curso) => ({
+    ...curso,
+    vagasRestantes: curso.vagas - curso.inscritos,
+  }));
+
+  res.json(comVagasRestantes);
+});
+
+app.post("/inscricoes", (req, res) => {
+  const {
+    curso,
+    empresa,
+    nome,
+    email,
+    telefone,
+    cpf,
+    metodoPagamento,
+    emailRecibo,
+    aceiteTermos,
+  } = req.body;
+
+  // Validação de todos os campos obrigatórios, incluindo o aceite dos termos.
+  // "!aceiteTermos" cobre tanto "false" quanto "undefined" (campo nem enviado).
+  if (
+    !curso || !empresa || !nome || !email || !telefone || !cpf ||
+    !metodoPagamento || !emailRecibo || !aceiteTermos
+  ) {
+    return res.status(400).json({
+      erro: "Preencha todos os campos obrigatórios e aceite os termos de inscrição.",
+    });
   }
 
   const cursoInfo = db.prepare("SELECT * FROM cursos WHERE id = ?").get(curso);
@@ -40,10 +71,16 @@ app.post("/inscricoes", (req, res) => {
     return res.status(400).json({ erro: `As vagas para "${cursoInfo.nome}" já se esgotaram.` });
   }
 
-  const stmt = db.prepare(
-    "INSERT INTO inscricoes (nome, email, curso, data) VALUES (?, ?, ?, ?)"
+  const stmt = db.prepare(`
+    INSERT INTO inscricoes
+      (nome, email, curso, data, empresa, telefone, cpf, metodo_pagamento, email_recibo, aceite_termos)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    nome, email, curso, new Date().toISOString(),
+    empresa, telefone, cpf, metodoPagamento, emailRecibo,
+    aceiteTermos ? 1 : 0
   );
-  stmt.run(nome, email, curso, new Date().toISOString());
 
   console.log(`Nova inscrição em "${cursoInfo.nome}":`, nome, email);
 
