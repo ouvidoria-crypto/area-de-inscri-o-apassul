@@ -4,7 +4,7 @@ function obterTransporte() {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  const port = Number(process.env.SMTP_PORT) || 587;
+  const port = Number(process.env.SMTP_PORT) || 465;
   const secure = process.env.SMTP_SECURE === "true" || port === 465;
 
   if (!host || !user || !pass) {
@@ -17,13 +17,13 @@ function obterTransporte() {
     secure,
     auth: { user, pass },
     tls: {
-      rejectUnauthorized: false, // Evita falhas com certificados autoassinados em servidores de email corporativos
+      rejectUnauthorized: false,
     },
   });
 }
 
 /**
- * Envia o e-mail automático com os dados de login e senha gerada após confirmação do pagamento
+ * Envia o e-mail automático com os dados de login e senha gerada após confirmação da inscrição
  */
 async function enviarEmailAcessoInscrito({
   nome,
@@ -45,7 +45,7 @@ async function enviarEmailAcessoInscrito({
       `[EMAIL SIMULADO] SMTP não configurado no servidor. Credenciais geradas para ${email}:`
     );
     console.log(` -> Login: ${email}`);
-    console.log(` -> Senha: ${senhaTemporaria}`);
+    console.log(` -> Senha Provisória: ${senhaTemporaria}`);
     console.log(` -> Link: ${linkAreaInscrito}`);
     return {
       sucesso: false,
@@ -85,21 +85,21 @@ async function enviarEmailAcessoInscrito({
           <p>Associação dos Produtores e Comerciantes de Sementes e Mudas</p>
         </div>
         <div class="content">
-          <span class="badge-sucesso">✓ Inscrição e Pagamento Confirmados</span>
+          <span class="badge-sucesso">✓ Inscrição Confirmada</span>
           <p>Olá, <strong>${nome}</strong>,</p>
-          <p>Confirmamos com sucesso o pagamento da sua inscrição no treinamento <strong>${nomeCurso}</strong>!</p>
-          <p>Seus dados de acesso exclusivo à <strong>Área do Inscrito</strong> foram gerados pelo sistema:</p>
+          <p>Confirmamos com sucesso a sua inscrição no treinamento <strong>${nomeCurso}</strong>!</p>
+          <p>Seus dados de acesso à <strong>Área do Inscrito</strong> foram gerados pelo sistema:</p>
 
           <div class="box-credenciais">
             <div class="label">Seu Login (E-mail):</div>
             <div class="valor-login">${email}</div>
 
-            <div class="label">Sua Senha de Acesso Inicial:</div>
+            <div class="label">Sua Senha de Acesso Provisória:</div>
             <div class="valor-senha">${senhaTemporaria}</div>
           </div>
 
           <div class="aviso-troca">
-            ⚠️ <strong>Importante:</strong> Por motivos de segurança, em seu <strong>primeiro acesso</strong> à Área do Inscrito, será obrigatório cadastrar uma nova senha pessoal definitiva de sua preferência.
+            🔑 <strong>Primeiro Acesso:</strong> Ao acessar a Área do Inscrito pela primeira vez com sua senha provisória, o sistema solicitará que você cadastre sua nova senha pessoal definitiva.
           </div>
 
           <a href="${linkAreaInscrito}" class="btn-acesso">Acessar Área do Inscrito</a>
@@ -111,12 +111,12 @@ async function enviarEmailAcessoInscrito({
           </div>
 
           <p style="font-size: 13px; color: #64748b; margin-top: 24px;">
-            Na Área do Inscrito você poderá acompanhar o cronograma, acessar links de transmissão, baixar materiais de apoio e emitir seu comprovante de matrícula.
+            Na Área do Inscrito você poderá acompanhar o cronograma, emitir seu comprovante de inscrição e acessar as salas de transmissão ao vivo e materiais do curso assim que o pagamento for compensado.
           </p>
         </div>
         <div class="footer">
           <p>Apassul - Dúvidas e suporte: ouvidoria@apassul.com.br</p>
-          <p>Este é um e-mail automático gerado após a confirmação da sua inscrição.</p>
+          <p>Este é um e-mail automático enviado após a confirmação da sua inscrição.</p>
         </div>
       </div>
     </body>

@@ -114,6 +114,16 @@ app.post("/inscricoes", async (req, res) => {
 
   console.log(`Nova inscrição em "${cursoInfo.nome}" (ID ${inscricaoId}):`, nome, email);
 
+  // [LIBERAÇÃO E DISPARO DE E-MAIL IMEDIATO]
+  let infoAcesso = null;
+  try {
+    const baseUrl = getBaseUrl(req);
+    infoAcesso = await liberarAcessoInscrito(db, inscricaoId, baseUrl);
+    console.log(`[Inscrição ID ${inscricaoId}] Credenciais geradas para ${email}. Status e-mail: ${infoAcesso.emailEnviado ? "ENVIADO VIA SMTP" : "SIMULADO/AGUARDANDO SMTP"}`);
+  } catch (errLiberacao) {
+    console.error("[Erro Liberação Imediata]:", errLiberacao.message);
+  }
+
   // Integração com Mercado Pago: criação de preferência e redirecionamento direto
   let initPoint = null;
   let modoSimulado = false;
@@ -151,6 +161,8 @@ app.post("/inscricoes", async (req, res) => {
     metodoPagamento,
     initPoint,
     modoSimulado,
+    emailEnviado: infoAcesso?.emailEnviado || false,
+    senhaTemporaria: infoAcesso?.senhaGerada || null,
   });
 });
 
@@ -323,11 +335,11 @@ function autenticarAluno(req, res, next) {
            cursos.carga_horaria, cursos.data_evento, cursos.requisitos
     FROM inscricoes
     LEFT JOIN cursos ON inscricoes.curso = cursos.id
-    WHERE inscricoes.token_sessao = ? AND inscricoes.status_pagamento = 'pago'
+    WHERE inscricoes.token_sessao = ?
   `).get(token);
 
   if (!aluno) {
-    return res.status(401).json({ erro: "Sessão inválida ou inscrição pendente de confirmação." });
+    return res.status(401).json({ erro: "Sessão inválida. Faça login novamente." });
   }
 
   req.aluno = aluno;
@@ -335,7 +347,7 @@ function autenticarAluno(req, res, next) {
 }
 
 // Login na Área do Inscrito (Login é o e-mail, senha é a enviada ou redefinida)
-app.post("/api/aluno/login", (req, res) => {
+app.post("/api/aluno/login", async (req, res) => {
   const { email, senha } = req.body;
 
   if (!email || !senha) {
@@ -344,8 +356,8 @@ app.post("/api/aluno/login", (req, res) => {
 
   const emailNormalizado = email.trim().toLowerCase();
 
-  // Busca inscrições pagas deste e-mail
-  const inscricao = db.prepare(`
+  // Busca inscrições deste e-mail (permite acesso em modo teste independente de pagamento)
+  let inscricao = db.prepare(`
     SELECT * FROM inscricoes
     WHERE LOWER(email) = ?
     ORDER BY id DESC LIMIT 1
@@ -357,16 +369,15 @@ app.post("/api/aluno/login", (req, res) => {
     });
   }
 
-  if (inscricao.status_pagamento !== "pago") {
-    return res.status(403).json({
-      erro: "Seu pagamento ainda está em processamento ou aguardando compensação bancária. O acesso é liberado assim que o pagamento for confirmado.",
-    });
-  }
-
+  // Se a senha ainda não havia sido gerada para esta inscrição antiga, gera agora automaticamente
   if (!inscricao.senha_hash) {
-    return res.status(400).json({
-      erro: "As credenciais ainda não foram geradas. Entre em contato com a Apassul.",
-    });
+    try {
+      const baseUrl = getBaseUrl(req);
+      await liberarAcessoInscrito(db, inscricao.id, baseUrl);
+      inscricao = db.prepare("SELECT * FROM inscricoes WHERE id = ?").get(inscricao.id);
+    } catch (e) {
+      console.error("Erro ao gerar credenciais na tentativa de login:", e.message);
+    }
   }
 
   const senhaValida = verificarSenha(senha.trim(), inscricao.senha_hash);
@@ -429,6 +440,7 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
     cpf: a.cpf,
     status_pagamento: a.status_pagamento,
     data_pagamento: a.data_pagamento,
+    mp_init_point: a.mp_init_point,
     troca_senha_obrigatoria: Boolean(a.troca_senha_obrigatoria),
     curso: {
       id: a.curso,
@@ -440,6 +452,21 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
       preco: a.valor,
     },
   });
+});
+
+// Rota para alternar o status de pagamento do próprio aluno logado durante os testes
+app.post("/api/aluno/simular-pagamento", autenticarAluno, (req, res) => {
+  const { status } = req.body; // 'pago' ou 'pendente'
+  const novoStatus = status === "pago" ? "pago" : "pendente";
+  const dataPag = novoStatus === "pago" ? new Date().toISOString() : null;
+
+  db.prepare(`
+    UPDATE inscricoes
+    SET status_pagamento = ?, data_pagamento = ?
+    WHERE id = ?
+  `).run(novoStatus, dataPag, req.aluno.id);
+
+  res.json({ sucesso: true, status_pagamento: novoStatus, data_pagamento: dataPag });
 });
 
 // Logout da Área do Inscrito

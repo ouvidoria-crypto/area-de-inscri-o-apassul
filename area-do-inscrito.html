@@ -212,6 +212,45 @@
       align-items: center;
       gap: 6px;
     }
+    .badge-pendente {
+      background-color: #fef9c3;
+      color: #854d0e;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .barra-teste-status {
+      background-color: #f8fafc;
+      border: 1px dashed #94a3b8;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .btn-toggle-teste {
+      background: #2e6b3e;
+      color: #ffffff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-toggle-teste:hover {
+      background: #235430;
+    }
     .grid-dados-aluno {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -294,7 +333,7 @@
   <main id="secaoLogin" class="card-login-aluno">
     <h1 id="tituloLoginAluno" class="titulo-aluno">Área do Inscrito</h1>
     <p id="subtituloLoginAluno" class="subtitulo-aluno">
-      Informe seu e-mail cadastrado na inscrição e a senha de 8 dígitos enviada após a confirmação do pagamento.
+      Informe seu e-mail cadastrado na inscrição e sua senha de acesso. No primeiro login, utilize a senha provisória enviada para seu e-mail.
     </p>
 
     <div id="msgErroLogin" class="alerta-erro" hidden></div>
@@ -320,7 +359,7 @@
           id="inputSenhaAluno"
           name="senha"
           required
-          placeholder="Senha recebida no e-mail"
+          placeholder="Digite a senha provisória ou sua senha cadastrada"
           autocomplete="current-password"
         >
       </div>
@@ -331,9 +370,12 @@
     </form>
 
     <div id="boxAjudaLogin" class="caixa-info-acesso">
-      <strong>ℹ️ Como recebo minha senha?</strong>
+      <strong>ℹ️ Como funciona o primeiro acesso?</strong>
       <p style="margin: 6px 0 0;">
-        Após a compensação do pagamento via Pix ou Boleto pelo Mercado Pago, nosso sistema envia automaticamente seu login e senha temporária de 8 caracteres para o e-mail informado no formulário.
+        Assim que a inscrição é realizada, nosso sistema envia para o seu e-mail uma <strong>senha provisória de 8 caracteres</strong>.
+      </p>
+      <p style="margin: 6px 0 0;">
+        Basta digitar seu e-mail e essa senha provisória nos campos acima e clicar em <strong>"Entrar"</strong>. Na sequência, o sistema solicitará que você defina sua nova senha definitiva.
       </p>
       <p style="margin: 6px 0 0;">
         Dúvidas ou suporte? Entre em contato pelo e-mail: <strong>ouvidoria@apassul.com.br</strong>.
@@ -345,10 +387,26 @@
   <!-- SEÇÃO 2: PAINEL PRINCIPAL DO ALUNO (APÓS LOGIN)          -->
   <!-- ======================================================= -->
   <section id="secaoPainelAluno" hidden>
+    <!-- Barra de Simulação para Testes -->
+    <div id="barraSimulacaoTeste" class="barra-teste-status">
+      <div>
+        <strong>🧪 Modo de Teste Rápido:</strong>
+        <span id="textoStatusAtualTeste" style="margin-left: 6px; color: #475569;">Alternar entre status Pago e Pendente para testar a Área do Curso</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="btnSimularPago" type="button" class="btn-toggle-teste" style="background: #2e6b3e;">
+          Simular como PAGO
+        </button>
+        <button id="btnSimularPendente" type="button" class="btn-toggle-teste" style="background: #d97706;">
+          Simular como PENDENTE
+        </button>
+      </div>
+    </div>
+
     <div id="topoPainelAluno" class="painel-aluno-topo">
       <div class="saudacao-aluno">
         <h2 id="saudacaoNomeAluno">Olá, Participante</h2>
-        <p id="subtituloStatusAluno">Matrícula confirmada no treinamento Apassul</p>
+        <p id="subtituloStatusAluno">Sua inscrição está confirmada no sistema Apassul</p>
       </div>
 
       <div class="acoes-topo-aluno">
@@ -364,18 +422,32 @@
       </div>
     </div>
 
-    <!-- Card 1: Curso e Confirmação -->
+    <!-- Banner caso esteja usando senha provisória -->
+    <div id="bannerSenhaProvisoria" style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;" hidden>
+      <div style="font-size: 13px; color: #92400e;">
+        🔑 <strong>Senha Provisória em uso:</strong> Você ainda está utilizando a senha provisória enviada por e-mail. Defina sua nova senha pessoal definitiva.
+      </div>
+      <button id="btnCadastrarSenhaDefinitivaBanner" type="button" class="btn-toggle-teste" style="background: #b45309; white-space: nowrap;">
+        Cadastrar Nova Senha
+      </button>
+    </div>
+
+    <!-- Card 1: Informações da Inscrição -->
     <div id="cardCursoAluno" class="card-painel">
       <div class="card-painel-header">
         <h3 id="tituloNomeCurso">Carregando informações do treinamento...</h3>
         <span id="badgeMatriculaConfirmada" class="badge-confirmado">
-          ✓ Pagamento e Inscrição Confirmados
+          ✓ Inscrição Confirmada
         </span>
       </div>
 
       <div id="descricaoCursoAluno" style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px;"></div>
 
       <div class="grid-dados-aluno">
+        <div class="dado-item">
+          <div class="rotulo">Status da Inscrição</div>
+          <div id="dadoStatusInscricao" class="valor" style="color: #2e6b3e; font-weight: 700;">Confirmada no Sistema</div>
+        </div>
         <div class="dado-item">
           <div class="rotulo">Data do Treinamento</div>
           <div id="dadoDataCurso" class="valor">-</div>
@@ -385,17 +457,81 @@
           <div id="dadoCargaHoraria" class="valor">-</div>
         </div>
         <div class="dado-item">
-          <div class="rotulo">Investimento Pago</div>
-          <div id="dadoValorCurso" class="valor">R$ 3.200,00</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">Data da Confirmação</div>
-          <div id="dadoDataPagamento" class="valor">-</div>
+          <div class="rotulo">Status do Pagamento</div>
+          <div id="dadoStatusPagamentoTexto" class="valor">-</div>
         </div>
       </div>
     </div>
 
-    <!-- Card 2: Dados do Participante Cadastrado -->
+    <!-- Card 2: ÁREA DO CURSO E AULAS (LIBERADO APÓS PAGAMENTO) -->
+    <div id="cardAreaDoCurso" class="card-painel" style="border-width: 2px;">
+      <div class="card-painel-header">
+        <h3 style="color: #1e293b;">
+          🎓 Área do Curso e Conteúdo Exclusivo
+        </h3>
+        <span id="badgeAcessoCurso" class="badge-confirmado">
+          Acesso Liberado
+        </span>
+      </div>
+
+      <!-- VISÃO 1: QUANDO ESTÁ PENDENTE DE PAGAMENTO -->
+      <div id="blocoCursoPendente" hidden>
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <span style="font-size: 24px;">🔒</span>
+            <strong style="color: #92400e; font-size: 16px;">Acesso às aulas e materiais aguardando confirmação do pagamento</strong>
+          </div>
+          <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.5;">
+            Sua vaga está garantida e sua inscrição está confirmada no sistema! A sala de transmissão ao vivo, apostilas oficiais e certificados são liberados imediatamente assim que o pagamento via Pix ou Boleto for compensado.
+          </p>
+        </div>
+
+        <div id="blocoPagarAgoraPainel" style="text-align: center; padding: 16px 0 8px;">
+          <p style="font-size: 14px; color: #475569; margin: 0 0 12px;">Deseja concluir o pagamento agora pelo Mercado Pago?</p>
+          <a id="btnIrMPPainel" href="#" target="_blank" rel="noopener noreferrer" class="btn-aluno-acao" style="text-decoration: none; display: inline-block; width: auto; padding: 12px 28px;">
+            💳 Concluir Pagamento no Mercado Pago
+          </a>
+        </div>
+      </div>
+
+      <!-- VISÃO 2: QUANDO ESTÁ PAGO / CONFIRMADO -->
+      <div id="blocoCursoLiberado" hidden>
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+          <strong style="color: #166534; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+            ✓ Pagamento compensado! Bem-vindo(a) à sala de aulas do treinamento.
+          </strong>
+          <p style="margin: 6px 0 0; color: #14532d; font-size: 13px; line-height: 1.5;">
+            Você já tem acesso total aos links de transmissão ao vivo, biblioteca de apostilas e certificado de conclusão.
+          </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px;">
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; background: #fafafa;">
+            <div style="font-size: 13px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; margin-bottom: 6px;">🎥 Sala de Transmissão ao Vivo</div>
+            <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Google Meet / Zoom Apassul</div>
+            <p style="font-size: 13px; color: #64748b; margin: 0 0 14px; line-height: 1.4;">O link oficial de acesso à transmissão será ativado 30 minutos antes do início do evento.</p>
+            <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #2e6b3e; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none;">
+              Acessar Sala de Aula →
+            </a>
+          </div>
+
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; background: #fafafa;">
+            <div style="font-size: 13px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; margin-bottom: 6px;">📚 Material Didático</div>
+            <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Apostila Oficial e Legislação Vigente</div>
+            <p style="font-size: 13px; color: #64748b; margin: 0 0 14px; line-height: 1.4;">Faça o download do PDF com o conteúdo programático completo e materiais de apoio.</p>
+            <button type="button" onclick="alert('Download da apostila liberado com sucesso!')" style="background: #ffffff; border: 1px solid #cbd5e1; color: #334155; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+              📥 Baixar Apostila Oficial (PDF)
+            </button>
+          </div>
+        </div>
+
+        <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155;">
+          📢 <strong>Orientações da Coordenação:</strong> Recomendamos acessar a sala com 10 minutos de antecedência para teste de áudio e vídeo. Dúvidas técnicas podem ser enviadas para <strong>ouvidoria@apassul.com.br</strong>.
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Dados do Participante Cadastrado -->
     <div id="cardDadosParticipante" class="card-painel">
       <div class="card-painel-header">
         <h3>Seus Dados Cadastrados</h3>
@@ -443,8 +579,17 @@
   <!-- MODAL: DEFINIÇÃO / TROCA DE SENHA                        -->
   <!-- ======================================================= -->
   <div id="modalTrocaSenha" class="modal-overlay" hidden>
-    <div class="modal-conteudo">
-      <h3 id="tituloModalSenha" style="margin: 0 0 8px; color: #0f172a; font-size: 20px;">
+    <div class="modal-conteudo" style="position: relative;">
+      <button
+        type="button"
+        id="btnFecharModalX"
+        style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer; line-height: 1; padding: 4px;"
+        title="Fechar e ir para o Login"
+      >
+        &times;
+      </button>
+
+      <h3 id="tituloModalSenha" style="margin: 0 0 8px; color: #0f172a; font-size: 20px; padding-right: 30px;">
         Cadastrar Nova Senha
       </h3>
       <p id="subtituloModalSenha" style="margin: 0 0 20px; font-size: 14px; color: #64748b; line-height: 1.5;">
@@ -487,7 +632,6 @@
             id="btnCancelarTrocaSenha"
             class="btn-secundario-aluno"
             style="flex: 1; justify-content: center;"
-            hidden
           >
             Cancelar
           </button>
@@ -498,6 +642,16 @@
             style="flex: 2;"
           >
             Salvar e Continuar
+          </button>
+        </div>
+
+        <div style="text-align: center; margin-top: 18px;">
+          <button
+            type="button"
+            id="btnVoltarLoginModal"
+            style="background: none; border: none; color: #2e6b3e; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline;"
+          >
+            ← Fazer login com outro e-mail ou voltar à tela de login
           </button>
         </div>
       </form>
