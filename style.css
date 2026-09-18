@@ -524,3 +524,43 @@ th {
   color: #0066cc;
   text-decoration: underline;
 }
+
+/* ==========================================================================
+   Ajustes pra tela pequena (celular). "@media (max-width: 600px)" faz essas
+   regras só valerem quando a tela é mais estreita que 600px - o resto do
+   arquivo continua valendo, essas regras só sobrescrevem o que precisa
+   mudar nesse tamanho. 600px cobre praticamente todo celular na vertical.
+   ========================================================================== */
+@media (max-width: 600px) {
+  body {
+    margin: 16px auto;
+    padding: 0 12px;
+  }
+
+  form {
+    padding: 20px 16px;
+  }
+
+  /* No computador, o título "Lista de inscritos" e o botão "Baixar CSV"
+     ficam lado a lado. Numa tela estreita não cabe os dois na mesma linha
+     de forma confortável, então essa regra empilha um embaixo do outro. */
+  .cabecalho-secao {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-secundario {
+    justify-content: center;
+  }
+
+  /* Encolhe um pouco o espaçamento do aviso de sucesso, senão a caixa fica
+     maior que a tela do celular e o texto quebra de um jeito apertado. */
+  .caixa-confirmacao {
+    padding: 24px 20px;
+    max-width: calc(100vw - 48px);
+  }
+
+  .texto-confirmacao {
+    font-size: 16px;
+  }
+}
