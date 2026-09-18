@@ -1,0 +1,76 @@
+/* Cada bloco abaixo é uma "regra": seletor { propriedade: valor; } */
+
+body {
+  /* Isso afeta a página inteira, porque <body> envolve tudo */
+  font-family: Arial, sans-serif;   /* tipo de letra */
+  background-color: #f4f6f4;        /* cor de fundo (código hexadecimal) */
+  color: #222;                      /* cor do texto */
+  max-width: 600px;                 /* a página não fica mais larga que isso */
+  margin: 40px auto;                /* centraliza o bloco na tela */
+  padding: 0 20px;
+}
+
+h1 {
+  color: #2e6b3e;   /* um verde, lembrando o tema agro da Apassul */
+}
+
+h2 {
+  color: #444;
+  border-bottom: 2px solid #2e6b3e;
+  padding-bottom: 6px;
+}
+
+form {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;         /* cantos arredondados */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);  /* sombra leve */
+}
+
+label {
+  font-weight: bold;
+}
+
+input, select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;  /* garante que o padding não estoure a largura */
+}
+
+button {
+  background-color: #2e6b3e;
+  color: white;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;   /* mãozinha ao passar o mouse */
+  font-size: 15px;
+}
+
+button:hover {
+  /* :hover = estilo aplicado só quando o mouse está em cima */
+  background-color: #244f2e;
+}
+
+/* Estilos para as tabelas do painel administrativo */
+table {
+  width: 100%;
+  border-collapse: collapse;  /* remove espaço duplicado entre as bordas das células */
+  background-color: #ffffff;
+  margin-bottom: 30px;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #2e6b3e;
+  color: white;
+}

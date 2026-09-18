@@ -1,0 +1,7 @@
+# node_modules é recriada automaticamente com "npm install" - não precisa
+# (e nem deve) ser enviada ao GitHub, ela é gigante e cheia de arquivos de terceiros.
+node_modules/
+
+# banco.db são os SEUS dados reais (nomes, e-mails). Nunca deve ir para um
+# repositório de código, mesmo privado.
+banco.db
