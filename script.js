@@ -5,22 +5,22 @@ const btnEnviar = document.getElementById("btnEnviar");
 const overlayConfirmacao = document.getElementById("overlayConfirmacao");
 
 // Mostra o aviso de sucesso no meio da tela, com o fundo da página
-// desfocado. Some sozinho depois de alguns segundos, ou assim que a pessoa
-// clicar em qualquer lugar.
+// desfocado. Em seguida, abre a página de confirmação (ou imediatamente,
+// se a pessoa clicar no aviso).
 let temporizadorConfirmacao = null;
+
+function irParaPaginaConfirmacao() {
+  clearTimeout(temporizadorConfirmacao);
+  window.location.href = "/inscricao-confirmada.html";
+}
 
 function mostrarConfirmacao() {
   overlayConfirmacao.hidden = false;
   clearTimeout(temporizadorConfirmacao);
-  temporizadorConfirmacao = setTimeout(esconderConfirmacao, 3000);
+  temporizadorConfirmacao = setTimeout(irParaPaginaConfirmacao, 2200);
 }
 
-function esconderConfirmacao() {
-  overlayConfirmacao.hidden = true;
-  clearTimeout(temporizadorConfirmacao);
-}
-
-overlayConfirmacao.addEventListener("click", esconderConfirmacao);
+overlayConfirmacao.addEventListener("click", irParaPaginaConfirmacao);
 
 // ============================================================================
 // Barra "congelada" no topo (mesma ideia da linha congelada do Excel): fica
@@ -468,16 +468,8 @@ formulario.addEventListener("submit", async function (evento) {
 
     if (resposta.ok) {
       esconderBalaoErro();
+      sessionStorage.setItem("emailParticipante", email);
       mostrarConfirmacao();
-      formulario.reset();
-      menuCurso.resetar();
-      menuEmpresa.resetar();
-      detalhesCurso.innerHTML = ""; // esvazia a caixa de descrição, que some (veja ":empty" no CSS)
-      carregarCursos();
-      // formulario.reset() não dispara "input"/"change" sozinho, então sem
-      // esta linha o botão continuaria com a aparência de "pronto" mesmo
-      // com os campos já vazios de novo.
-      atualizarBotaoEnviar();
     } else {
       mostrarErroCampo(btnEnviar, dados.erro || "Não foi possível enviar a inscrição.");
     }

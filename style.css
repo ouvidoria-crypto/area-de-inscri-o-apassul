@@ -555,6 +555,58 @@ th {
   margin: 0;
 }
 
+/* Página exibida após o aviso de inscrição enviada. */
+body.pagina-sucesso {
+  max-width: 720px;
+}
+
+.cabecalho-sucesso {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.caixa-sucesso {
+  background-color: #ffffff;
+  border: 2px solid #2e6b3e;
+  border-radius: 12px;
+  padding: 40px 40px 36px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  animation: entradaSuave 0.3s ease;
+}
+
+.caixa-sucesso h1 {
+  text-align: center;
+  font-size: 26px;
+  margin: 8px 0 20px;
+}
+
+.caixa-sucesso p {
+  line-height: 1.6;
+  margin: 0 0 16px;
+  color: #333;
+}
+
+.caixa-sucesso .texto-complementar {
+  color: #555;
+  font-size: 15px;
+}
+
+.caixa-sucesso #emailParticipante {
+  color: #2e6b3e;
+  word-break: break-all;
+}
+
+a.link-voltar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin-top: 12px;
+  padding: 12px 24px;
+}
+
 /* Estilo para links de e-mail */
 .link-email {
   color: #0066cc;
@@ -669,6 +721,14 @@ th {
 
   .texto-confirmacao {
     font-size: 16px;
+  }
+
+  .caixa-sucesso {
+    padding: 28px 20px 24px;
+  }
+
+  .caixa-sucesso h1 {
+    font-size: 22px;
   }
 
   /* Em telas estreitas o balão não pode ser mais largo que a própria tela */

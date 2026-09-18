@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscrição confirmada - Apassul</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="pagina-sucesso">
+
+  <header class="cabecalho-sucesso">
+    <img src="logo-apassul.png" alt="Logo Apassul" class="logo">
+  </header>
+
+  <section class="caixa-sucesso" aria-labelledby="tituloSucesso">
+    <svg class="icone-confirmacao" viewBox="0 0 52 52" width="64" height="64" aria-hidden="true">
+      <circle cx="26" cy="26" r="25" fill="#2e6b3e"/>
+      <path d="M15 27l7 7 15-15" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1 id="tituloSucesso">Inscrição realizada com sucesso</h1>
+    <p>
+      O login e a senha de acesso serão enviados ao e-mail do participante
+      informado no formulário
+      (<strong id="emailParticipante">o e-mail cadastrado</strong>),
+      após a confirmação do pagamento.
+    </p>
+    <p class="texto-complementar">
+      A efetivação da inscrição ocorre somente após o recebimento e a validação
+      do comprovante de pagamento, conforme os termos e condições apresentados
+      no momento da inscrição.
+    </p>
+    <a class="botao-enviar pronto link-voltar" href="/">Voltar à área de inscrição</a>
+  </section>
+
+  <script>
+    const emailGuardado = sessionStorage.getItem("emailParticipante");
+    const destino = document.getElementById("emailParticipante");
+    if (emailGuardado) {
+      destino.textContent = emailGuardado;
+    }
+  </script>
+</body>
+</html>
