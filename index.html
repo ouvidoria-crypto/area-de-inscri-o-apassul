@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Área de Inscrição - Apassul</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,17 +20,133 @@
 
   <form id="formInscricao">
 
-    <label for="curso">Curso:</label><br>
-    <select id="curso" name="curso">
-      <option value="">Carregando cursos...</option>
-    </select>
+    <label for="botaoCurso">Curso:</label><br>
+    <!-- Menu personalizado no lugar do <select> nativo: o navegador não deixa
+         estilizar a lista de opções de um <select> (cantos arredondados,
+         separação entre opções etc.), então esses dois campos usam um botão +
+         lista própria, no mesmo padrão visual do resto do site. O valor
+         realmente escolhido fica guardado no <input type="hidden">, que o
+         resto do código (script.js) lê exatamente como lia o <select>. -->
+    <div class="select-personalizado" id="seletorCurso">
+      <button type="button" class="select-botao" id="botaoCurso" aria-haspopup="listbox" aria-expanded="false">
+        <span class="select-texto">Carregando cursos...</span>
+        <svg class="select-seta" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <ul class="select-lista" id="listaCurso" role="listbox" hidden></ul>
+    </div>
+    <input type="hidden" id="curso" name="curso">
 
     <!-- Preenchido pelo script.js com os detalhes do curso escolhido -->
     <div id="detalhesCurso"></div>
     <br>
 
-    <label for="empresa">Empresa:</label><br>
-    <input type="text" id="empresa" name="empresa"><br><br>
+    <label for="botaoEmpresa">Empresa:</label><br>
+    <div class="select-personalizado" id="seletorEmpresa">
+      <button type="button" class="select-botao" id="botaoEmpresa" aria-haspopup="listbox" aria-expanded="false">
+        <span class="select-texto">Selecione uma empresa...</span>
+        <svg class="select-seta" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <ul class="select-lista" id="listaEmpresa" role="listbox" hidden>
+        <li data-valor="OUTRO">OUTRO</li>
+        <li data-valor="3 TENTOS">3 TENTOS</li>
+        <li data-valor="ABC">ABC</li>
+        <li data-valor="AGROSUL">AGROSUL</li>
+        <li data-valor="AGS">AGS</li>
+        <li data-valor="ALLIANCE ONE">ALLIANCE ONE</li>
+        <li data-valor="ANDRETTA">ANDRETTA</li>
+        <li data-valor="ARNS">ARNS</li>
+        <li data-valor="AURORA">AURORA</li>
+        <li data-valor="BARCELLOS">BARCELLOS</li>
+        <li data-valor="BEE">BEE</li>
+        <li data-valor="BUTIÁ">BUTIÁ</li>
+        <li data-valor="C.VALE">C.VALE</li>
+        <li data-valor="CADORE">CADORE</li>
+        <li data-valor="CAMBAÍ">CAMBAÍ</li>
+        <li data-valor="CAMOZZATO">CAMOZZATO</li>
+        <li data-valor="CANOA MIRIM">CANOA MIRIM</li>
+        <li data-valor="CAPÃO GRANDE">CAPÃO GRANDE</li>
+        <li data-valor="CAUDURO">CAUDURO</li>
+        <li data-valor="CAVALHADA">CAVALHADA</li>
+        <li data-valor="CERATTI">CERATTI</li>
+        <li data-valor="CERNE SEMENTES">CERNE SEMENTES</li>
+        <li data-valor="CHAPADA">CHAPADA</li>
+        <li data-valor="CHIAPETA">CHIAPETA</li>
+        <li data-valor="COMETA">COMETA</li>
+        <li data-valor="CONDESSA">CONDESSA</li>
+        <li data-valor="COOPATRIGO">COOPATRIGO</li>
+        <li data-valor="COOPERJA">COOPERJA</li>
+        <li data-valor="COPAGRIL">COPAGRIL</li>
+        <li data-valor="COPERCAMPOS">COPERCAMPOS</li>
+        <li data-valor="COSTA BEBER">COSTA BEBER</li>
+        <li data-valor="COTRIJAL">COTRIJAL</li>
+        <li data-valor="COTRIPAL">COTRIPAL</li>
+        <li data-valor="COTRISAL">COTRISAL</li>
+        <li data-valor="CRAT">CRAT</li>
+        <li data-valor="CROPER">CROPER</li>
+        <li data-valor="DALLAZEN">DALLAZEN</li>
+        <li data-valor="EB">EB</li>
+        <li data-valor="ECKERT">ECKERT</li>
+        <li data-valor="ESTRELA">ESTRELA</li>
+        <li data-valor="FABRIS">FABRIS</li>
+        <li data-valor="FAD">FAD</li>
+        <li data-valor="FALCÃO">FALCÃO</li>
+        <li data-valor="FCOSTA">FCOSTA</li>
+        <li data-valor="FORMOSA">FORMOSA</li>
+        <li data-valor="GASPARETTO">GASPARETTO</li>
+        <li data-valor="GERMINOVA">GERMINOVA</li>
+        <li data-valor="GERMITEC">GERMITEC</li>
+        <li data-valor="GIOVELLI">GIOVELLI</li>
+        <li data-valor="GRANDESPE">GRANDESPE</li>
+        <li data-valor="GRANJA GUAPORÉ">GRANJA GUAPORÉ</li>
+        <li data-valor="HAMMEL">HAMMEL</li>
+        <li data-valor="ITAIPÚ">ITAIPÚ</li>
+        <li data-valor="JS">JS</li>
+        <li data-valor="L.C.">L.C.</li>
+        <li data-valor="LOPES">LOPES</li>
+        <li data-valor="MACALI">MACALI</li>
+        <li data-valor="MAXIAGRO">MAXIAGRO</li>
+        <li data-valor="MILKSEEDS">MILKSEEDS</li>
+        <li data-valor="MM MARCONDES">MM MARCONDES</li>
+        <li data-valor="MOLON">MOLON</li>
+        <li data-valor="MP">MP</li>
+        <li data-valor="NATIVA">NATIVA</li>
+        <li data-valor="PAIOL">PAIOL</li>
+        <li data-valor="PIANTARE">PIANTARE</li>
+        <li data-valor="PONTEIO">PONTEIO</li>
+        <li data-valor="POSTAY">POSTAY</li>
+        <li data-valor="PROFIGEN">PROFIGEN</li>
+        <li data-valor="RANCHO KING">RANCHO KING</li>
+        <li data-valor="RAR/RASIP">RAR/RASIP</li>
+        <li data-valor="RELVA">RELVA</li>
+        <li data-valor="ROOS">ROOS</li>
+        <li data-valor="RORATTO">RORATTO</li>
+        <li data-valor="RUPOLLO">RUPOLLO</li>
+        <li data-valor="SÃO JOÃO">SÃO JOÃO</li>
+        <li data-valor="SCHERER">SCHERER</li>
+        <li data-valor="SINIGAGLIA">SINIGAGLIA</li>
+        <li data-valor="STEDILE">STEDILE</li>
+        <li data-valor="SUL GRAAN">SUL GRAAN</li>
+        <li data-valor="TABOÃO">TABOÃO</li>
+        <li data-valor="TARUMÃ">TARUMÃ</li>
+        <li data-valor="TERRA DURA">TERRA DURA</li>
+        <li data-valor="TERRA GREDA">TERRA GREDA</li>
+        <li data-valor="TERRABOA">TERRABOA</li>
+        <li data-valor="THEDY AGRO">THEDY AGRO</li>
+        <li data-valor="TOMBINI">TOMBINI</li>
+        <li data-valor="TRENTIN">TRENTIN</li>
+        <li data-valor="UGGERI">UGGERI</li>
+        <li data-valor="VAN ASS">VAN ASS</li>
+        <li data-valor="VICTOR">VICTOR</li>
+        <li data-valor="VIVEIRO JAHNKE">VIVEIRO JAHNKE</li>
+        <li data-valor="VIVEIROS WEBER">VIVEIROS WEBER</li>
+        <li data-valor="WEBBER">WEBBER</li>
+      </ul>
+    </div>
+    <input type="hidden" id="empresa" name="empresa"><br><br>
 
     <label for="nome">Nome Completo do Participante:</label><br>
     <input type="text" id="nome" name="nome"><br><br>
@@ -70,7 +189,7 @@
 
       <p><strong>1. Confirmação da inscrição</strong><br>
       A inscrição será confirmada após o pagamento. O respectivo comprovante deverá ser encaminhado para
-      liliane@apassul.com.br.</p>
+      <a href="mailto:liliane@apassul.com.br" class="link-email">liliane@apassul.com.br</a></p>
 
       <p><strong>2. Cancelamento e reembolso</strong><br>
       Caso seja necessário desistir da participação, a solicitação deverá ser formalizada por e-mail,
@@ -92,10 +211,23 @@
     </label>
     <br><br>
 
-    <button type="submit">Enviar inscrição</button>
+    <button type="submit" id="btnEnviar" class="botao-enviar">Enviar inscrição</button>
   </form>
 
   <p id="mensagem"></p>
+
+  <!-- Aparece por cima de tudo quando a inscrição é enviada com sucesso.
+       Começa "hidden" (escondido) e o script.js troca isso ao enviar. -->
+  <div id="overlayConfirmacao" class="overlay-confirmacao" hidden>
+    <div class="caixa-confirmacao">
+      <svg class="icone-confirmacao" viewBox="0 0 52 52" width="64" height="64" aria-hidden="true">
+        <circle cx="26" cy="26" r="25" fill="#2e6b3e"/>
+        <path d="M15 27l7 7 15-15" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <p class="texto-confirmacao">Inscrição enviada com sucesso</p>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>

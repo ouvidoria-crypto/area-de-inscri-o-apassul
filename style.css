@@ -1,10 +1,10 @@
 /* Cada bloco abaixo é uma "regra": seletor { propriedade: valor; } */
 
 body {
-  font-family: Arial, sans-serif;
+  font-family: "Public Sans", Arial, sans-serif;
   background-color: #f4f6f4;
   color: #222;
-  max-width: 800px;  /* mais largo que o padrão do Google Forms (~640px) */
+  max-width: 800px;
   margin: 40px auto;
   padding: 0 20px;
 }
@@ -49,19 +49,140 @@ label {
   font-weight: bold;
 }
 
-/* Antes esta regra pegava TODO <input>, inclusive radio e checkbox, esticando
-   eles feito caixa de texto. Agora só se aplica aos tipos de campo de texto. */
+/* Estilo padronizado para caixas de texto (inputs) */
 input[type="text"],
 input[type="email"],
-input[type="tel"],
-select {
+input[type="tel"] {
   width: 100%;
-  padding: 8px;
+  padding: 10px 12px;
   margin-top: 4px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+/* Menu personalizado (Curso e Empresa), no lugar do <select> nativo do
+   navegador. Motivo: o navegador não deixa estilizar livremente a lista de
+   opções de um <select> (cantos arredondados, separação entre cada item
+   etc.), só a caixa fechada. Esse componente é um botão + uma lista própria
+   (<ul>/<li>), no mesmo padrão visual do resto do site (compare com as
+   regras de "fieldset label" e ".aceite" acima). */
+.select-personalizado {
+  position: relative;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.select-botao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #ffffff;
+  color: #222;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.select-botao:hover {
+  border-color: #999;
+}
+
+/* Destaca a caixa enquanto a lista está aberta ou o botão está focado
+   (mesmo efeito que o <select> nativo tinha ao clicar) */
+.select-botao[aria-expanded="true"],
+.select-botao:focus-visible {
+  outline: none;
+  border-color: #2e6b3e;
+  box-shadow: 0 0 0 2px rgba(46, 107, 62, 0.2);
+}
+
+/* Ao passar o mouse no botão, fundo verde e texto branco (repetimos aqui
+   "background-color" e "color" de propósito: sem isso, a regra genérica
+   "button:hover" mais abaixo no arquivo "vazava" um verde mais escuro e
+   texto escuro, ficando ilegível). Depois que uma opção é escolhida, o
+   JavaScript acrescenta a classe "selecionado" no botão, e ele fica com
+   essa mesma aparência de forma definitiva, não só durante o hover. */
+.select-botao:hover,
+.select-botao.selecionado {
+  background-color: #2e6b3e;
+  color: #ffffff;
+  border-color: #2e6b3e;
+}
+
+.select-botao.selecionado {
+  font-weight: bold;
+}
+
+.select-seta {
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: #666;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.select-botao:hover .select-seta,
+.select-botao.selecionado .select-seta {
+  color: #ffffff;
+}
+
+/* Gira a setinha de cabeça para baixo quando a lista está aberta */
+.select-botao[aria-expanded="true"] .select-seta {
+  transform: rotate(180deg);
+}
+
+/* A lista flutua por cima do resto do conteúdo (position: absolute), logo
+   abaixo do botão, e tem rolagem própria se tiver muitas opções (caso da
+   lista de empresas). */
+.select-lista {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Cada opção é sua própria caixinha com borda e cantos arredondados,
+   separada das outras por uma margem - igual ao padrão usado nas opções
+   de método de pagamento. */
+.select-lista li {
+  padding: 9px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.select-lista li:last-child {
+  margin-bottom: 0;
+}
+
+/* Ao passar o mouse, a opção fica com fundo verde (a mesma cor usada na
+   descrição do curso) e texto branco. A opção escolhida usa a mesma
+   combinação, só que fixa - não muda quando o mouse sai dela. */
+.select-lista li:hover,
+.select-lista li.selecionado {
+  background-color: #2e6b3e;
+  border-color: #2e6b3e;
+  color: #ffffff;
+  font-weight: bold;
 }
 
 /* Radio e checkbox ficam do tamanho normal, alinhados com o texto do label.
@@ -76,9 +197,9 @@ input[type="checkbox"] {
   margin-right: 8px;
   vertical-align: middle;
   border: 2px solid #999;
-  border-radius: 3px;   /* levemente arredondado, mas continua um quadrado */
+  border-radius: 3px;
   position: relative;
-  top: -2px;   /* ajuste fino, calibrado ao vivo pelo DevTools para alinhar com o topo da letra */
+  top: -2px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -138,7 +259,9 @@ fieldset label:hover {
 
 fieldset label:has(input:checked) {
   border-color: #2e6b3e;
-  background-color: #f0f4f0;
+  background-color: #2e6b3e;
+  color: #ffffff;
+  font-weight: bold;
 }
 
 /* Quadro com os termos e condições */
@@ -182,9 +305,9 @@ fieldset label:has(input:checked) {
 
 .aceite:has(input:checked) {
   border-color: #2e6b3e;
-  background-color: #f0f4f0;
+  background-color: #2e6b3e;
   font-weight: bold;
-  color: #2e6b3e;
+  color: #ffffff;
 }
 
 button {
@@ -199,6 +322,44 @@ button {
 
 button:hover {
   background-color: #244f2e;
+}
+
+/* Botão de enviar inscrição: começa "apagado" (contorno verde, fundo branco)
+   enquanto o formulário não está completo. O script.js confere os campos a
+   cada digitação/seleção e acrescenta a classe "pronto" assim que tudo
+   obrigatório estiver preenchido - af então o botão vira sólido (fundo
+   verde, texto branco). No instante do clique (":active"), ele inverte as
+   cores de novo, como um "flash" de confirmação do toque. */
+.botao-enviar {
+  background-color: #ffffff;
+  color: #2e6b3e;
+  border: 2px solid #2e6b3e;
+  padding: 10px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: bold;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.botao-enviar:hover {
+  background-color: #ffffff;
+  color: #2e6b3e;
+}
+
+.botao-enviar.pronto {
+  background-color: #2e6b3e;
+  color: #ffffff;
+}
+
+.botao-enviar.pronto:hover {
+  background-color: #2e6b3e;
+  color: #ffffff;
+}
+
+.botao-enviar.pronto:active {
+  background-color: #ffffff;
+  color: #2e6b3e;
 }
 
 /* Linha com o título da seção e o botão de exportar lado a lado */
@@ -274,6 +435,15 @@ th {
   font-size: 14px;
 }
 
+/* Enquanto nenhum curso foi escolhido, essa caixa está literalmente vazia
+   (o script.js só coloca conteúdo nela depois da seleção). ":empty" faz o
+   navegador sumir com ela por completo nesse caso - sem borda, sem espaço
+   reservado - e ela volta a aparecer (com o padding/borda/margem normais)
+   assim que ganha conteúdo, empurrando o campo "Empresa" pra baixo. */
+#detalhesCurso:empty {
+  display: none;
+}
+
 @keyframes entradaSuave {
   from {
     opacity: 0;
@@ -304,4 +474,53 @@ th {
   white-space: pre-line;
   line-height: 1.5;
   text-align: justify;
+}
+
+/* Aviso de sucesso que aparece por cima da página inteira, com o fundo
+   desfocado (mesma ideia visual usada no resto do site: fundo verde
+   predominante, cantos arredondados, e a animação "entradaSuave" que já
+   existe pra outros elementos). */
+.overlay-confirmacao {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  cursor: pointer;
+}
+
+.overlay-confirmacao[hidden] {
+  display: none;
+}
+
+.caixa-confirmacao {
+  background-color: #ffffff;
+  border: 2px solid #2e6b3e;
+  border-radius: 12px;
+  padding: 36px 48px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  cursor: default;
+  animation: entradaSuave 0.3s ease;
+}
+
+.icone-confirmacao {
+  margin-bottom: 12px;
+}
+
+.texto-confirmacao {
+  font-size: 18px;
+  font-weight: bold;
+  color: #2e6b3e;
+  margin: 0;
+}
+
+/* Estilo para links de e-mail */
+.link-email {
+  color: #0066cc;
+  text-decoration: underline;
 }

@@ -17,18 +17,21 @@ const protegerAdmin = basicAuth({
   unauthorizedResponse: "Acesso negado.",
 });
 
-// Rota pública: só devolve as informações que quem está se inscrevendo pode ver.
-// Note que "vagas" e a contagem de inscritos NÃO estão nessa consulta de propósito —
-// quem preenche o formulário não deve saber quantas vagas existem ou já foram
-// preenchidas (isso é uma decisão de negócio, não uma limitação técnica).
 app.get("/cursos", (req, res) => {
   const cursos = db
     .prepare(
-      `SELECT id, nome, descricao, carga_horaria, data_evento, requisitos FROM cursos`
+      `SELECT id, nome, descricao, carga_horaria, data_evento, requisitos, vagas,
+        (SELECT COUNT(*) FROM inscricoes WHERE inscricoes.curso = cursos.id) AS inscritos
+       FROM cursos`
     )
     .all();
 
-  res.json(cursos);
+  const comVagasRestantes = cursos.map((curso) => ({
+    ...curso,
+    vagasRestantes: curso.vagas - curso.inscritos,
+  }));
+
+  res.json(comVagasRestantes);
 });
 
 app.post("/inscricoes", (req, res) => {
