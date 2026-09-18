@@ -8,6 +8,9 @@
        real da tela dele, sem simular um monitor de computador. -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Área de Inscrição - Apassul</title>
+  <meta name="description" content="Sistema de inscrição para cursos da Apassul">
+  <meta property="og:title" content="Área de Inscrição - Apassul">
+  <meta property="og:description" content="Sistema de inscrição para cursos da Apassul">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -176,23 +179,80 @@
     <label for="cpf">CPF do Participante para emissão de certificado:</label><br>
     <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric"><br><br>
 
-    <fieldset>
+    <fieldset id="grupoPagamento">
       <legend>Selecione o Método de Pagamento</legend>
 
       <label>
-        <input type="radio" name="metodoPagamento" value="pix">
-        Pix: CNPJ: 92.045.327/0001-06
+        <input type="radio" name="metodoPagamento" value="pix" id="radioPix">
+        Pix (Mercado Pago — Pagamento instantâneo)
       </label><br>
 
       <label>
-        <input type="radio" name="metodoPagamento" value="deposito">
+        <input type="radio" name="metodoPagamento" value="deposito" id="radioDeposito">
         Depósito Bancário: BANCO DO BRASIL S.A. (Agência: 3534-3 / C/c: 2.009-5 / CNPJ: 92.045.327/0001-06)
       </label><br>
 
-      <label>
-        <input type="radio" name="metodoPagamento" value="boleto">
-        Boleto Bancário: Entre em contato - arthurmachado@apassul.com.br | (55) 9.9720-6633
+      <label id="labelBoleto">
+        <input type="radio" name="metodoPagamento" value="boleto" id="radioBoleto">
+        Boleto Bancário (Mercado Pago — Escolha o melhor dia de vencimento)
       </label>
+
+      <!-- Painel do Calendário de Vencimento do Boleto -->
+      <div id="painelCalendarioBoleto" class="painel-calendario-boleto" hidden>
+        <div class="calendario-cabecalho-pergunta">
+          <svg class="icone-pergunta-calendario" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+            <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"/>
+            <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/>
+            <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <div class="textos-pergunta-calendario">
+            <span class="pergunta-principal">Qual é o melhor dia para o vencimento do boleto?</span>
+            <span class="pergunta-instrucao">Selecione uma data para o vencimento (disponível até 15 de outubro de 2026).</span>
+          </div>
+        </div>
+
+        <div class="calendario-widget" id="calendarioWidget" role="region" aria-label="Calendário de vencimento do boleto">
+          <div class="calendario-topo-nav">
+            <button type="button" id="btnMesAnterior" class="btn-calendario-nav" aria-label="Mês anterior">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div id="mesAnoDisplay" class="calendario-mes-ano" aria-live="polite"></div>
+            <button type="button" id="btnMesProximo" class="btn-calendario-nav" aria-label="Próximo mês">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="calendario-dias-semana" aria-hidden="true">
+            <span>Dom</span>
+            <span>Seg</span>
+            <span>Ter</span>
+            <span>Qua</span>
+            <span>Qui</span>
+            <span>Sex</span>
+            <span>Sáb</span>
+          </div>
+
+          <div class="calendario-grade-dias" id="gradeDiasCalendario" role="grid" aria-label="Dias do mês"></div>
+
+          <div id="feedbackVencimento" class="feedback-vencimento" hidden>
+            <div class="feedback-vencimento-conteudo">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" fill="#2e6b3e"/>
+                <path d="M8 12l3 3 5-5" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Vencimento selecionado: <strong id="dataVencimentoFormatada"></strong></span>
+            </div>
+            <button type="button" id="btnLimparDataVencimento" class="btn-limpar-data" title="Alterar data">Alterar</button>
+          </div>
+        </div>
+
+        <input type="hidden" id="vencimentoBoleto" name="vencimentoBoleto">
+      </div>
     </fieldset>
     <br>
 

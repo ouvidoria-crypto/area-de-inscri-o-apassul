@@ -1,0 +1,8 @@
+{
+  "name": "Área de Inscrição - Apassul",
+  "description": "Sistema de inscrição para cursos da Apassul",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

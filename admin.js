@@ -10,9 +10,46 @@ const nomesPagamento = {
   boleto: "Boleto Bancário",
 };
 
+const titulosStatus = {
+  pago: "Pago",
+  pendente: "Pendente",
+  cancelado: "Cancelado",
+  rejeitado: "Rejeitado",
+  estornado: "Estornado",
+};
+
+function formatarMoeda(valor) {
+  const numero = Number(valor) || 3200;
+  return numero.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 // Guarda a última lista de inscritos carregada, pra poder gerar o CSV
 // sem precisar buscar tudo de novo no servidor.
 let inscritosAtuais = [];
+
+async function alterarStatus(id, novoStatus) {
+  try {
+    const resposta = await fetch(`/admin/inscricoes/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status_pagamento: novoStatus }),
+    });
+
+    if (resposta.ok) {
+      mensagem.textContent = `Status da inscrição #${id} atualizado para "${titulosStatus[novoStatus] || novoStatus}" com sucesso.`;
+      mensagem.className = "msg-sucesso";
+      setTimeout(() => { mensagem.textContent = ""; }, 4000);
+      carregarPainel();
+    } else {
+      const err = await resposta.json();
+      alert(err.erro || "Não foi possível alterar o status.");
+    }
+  } catch (erro) {
+    console.error(erro);
+    alert("Erro de conexão ao atualizar o status.");
+  }
+}
 
 async function carregarPainel() {
   try {
@@ -23,6 +60,7 @@ async function carregarPainel() {
 
     if (!respostaResumo.ok || !respostaInscritos.ok) {
       mensagem.textContent = "Não foi possível carregar os dados. Você está logado?";
+      mensagem.className = "msg-erro";
       return;
     }
 
@@ -35,9 +73,11 @@ async function carregarPainel() {
       const restantes = curso.vagas - curso.inscritos;
       const linha = document.createElement("tr");
       linha.innerHTML = `
-        <td>${curso.nome}</td>
+        <td><strong>${curso.nome}</strong></td>
+        <td>${formatarMoeda(curso.preco || 3200)}</td>
         <td>${curso.vagas}</td>
         <td>${curso.inscritos}</td>
+        <td><strong style="color: #2e6b3e;">${curso.pagos || 0}</strong></td>
         <td>${restantes}</td>
       `;
       resumoCorpo.appendChild(linha);
@@ -46,33 +86,59 @@ async function carregarPainel() {
     inscritosCorpo.innerHTML = "";
     inscritos.forEach((inscricao) => {
       const dataFormatada = new Date(inscricao.data).toLocaleString("pt-BR");
-      const pagamento = nomesPagamento[inscricao.metodo_pagamento] || inscricao.metodo_pagamento || "-";
+      let pagamento = nomesPagamento[inscricao.metodo_pagamento] || inscricao.metodo_pagamento || "-";
+      if (inscricao.metodo_pagamento === "boleto" && inscricao.vencimento_boleto) {
+        pagamento += `<br><small class="tag-vencimento">Venc: ${inscricao.vencimento_boleto}</small>`;
+      }
+
+      const statusAtual = inscricao.status_pagamento || "pendente";
+      const statusLabel = titulosStatus[statusAtual] || statusAtual;
+
       const linha = document.createElement("tr");
       linha.innerHTML = `
-        <td>${inscricao.nome}</td>
+        <td><strong>${inscricao.nome}</strong></td>
         <td>${inscricao.empresa || "-"}</td>
-        <td>${inscricao.email}</td>
+        <td><a href="mailto:${inscricao.email}">${inscricao.email}</a></td>
         <td>${inscricao.telefone || "-"}</td>
         <td>${inscricao.cpf || "-"}</td>
         <td>${inscricao.curso}</td>
+        <td>${formatarMoeda(inscricao.valor || 3200)}</td>
         <td>${pagamento}</td>
+        <td>
+          <span class="badge-status ${statusAtual}">${statusLabel}</span>
+          ${inscricao.mp_payment_id ? `<br><small class="texto-mp-id">MP #${inscricao.mp_payment_id}</small>` : ""}
+        </td>
         <td>${inscricao.email_recibo || "-"}</td>
         <td>${dataFormatada}</td>
+        <td>
+          <select class="select-status-admin" data-id="${inscricao.id}" aria-label="Alterar status de pagamento">
+            <option value="pendente" ${statusAtual === "pendente" ? "selected" : ""}>Pendente</option>
+            <option value="pago" ${statusAtual === "pago" ? "selected" : ""}>Pago</option>
+            <option value="cancelado" ${statusAtual === "cancelado" ? "selected" : ""}>Cancelado</option>
+          </select>
+        </td>
       `;
       inscritosCorpo.appendChild(linha);
     });
+
+    // Conecta eventos dos selects de status
+    document.querySelectorAll(".select-status-admin").forEach((sel) => {
+      sel.addEventListener("change", (e) => {
+        const id = e.target.dataset.id;
+        const novoStatus = e.target.value;
+        alterarStatus(id, novoStatus);
+      });
+    });
+
   } catch (erro) {
     mensagem.textContent = "Erro de conexão com o servidor.";
+    mensagem.className = "msg-erro";
     console.error(erro);
   }
 }
 
 carregarPainel();
 
-// Coloca aspas em volta de um campo quando ele contém ponto e vírgula, aspas
-// ou quebra de linha, pra não bagunçar as colunas do CSV. Aspas dentro do
-// texto viram aspas duplicadas (""), que é a forma padrão de "escapar" aspas
-// dentro de um campo de CSV.
 function escaparCampoCSV(valor) {
   const texto = String(valor ?? "");
   if (/[";\n]/.test(texto)) {
@@ -81,22 +147,36 @@ function escaparCampoCSV(valor) {
   return texto;
 }
 
-// Monta o texto do CSV inteiro: uma linha de cabeçalho, depois uma linha por
-// inscrição. Usa ";" como separador (em vez de ","), porque é o que o Excel
-// em português espera para abrir o arquivo já dividido em colunas.
 function paraCSV(inscritos) {
   const cabecalho = [
-    "Nome", "Empresa", "E-mail", "Telefone", "CPF",
-    "Curso", "Pagamento", "E-mail recibo", "Data",
+    "ID", "Nome", "Empresa", "E-mail", "Telefone", "CPF",
+    "Curso", "Valor (R$)", "Forma de Pagamento", "Vencimento Boleto",
+    "Status Pagamento", "ID Mercado Pago", "Data Pagamento", "E-mail Recibo", "Data Inscrição",
   ];
 
   const linhas = inscritos.map((inscricao) => {
     const dataFormatada = new Date(inscricao.data).toLocaleString("pt-BR");
-    const pagamento = nomesPagamento[inscricao.metodo_pagamento] || inscricao.metodo_pagamento || "-";
+    const dataPagamentoFormatada = inscricao.data_pagamento
+      ? new Date(inscricao.data_pagamento).toLocaleString("pt-BR")
+      : "-";
+    const formaPagamento = nomesPagamento[inscricao.metodo_pagamento] || inscricao.metodo_pagamento || "-";
+
     return [
-      inscricao.nome, inscricao.empresa || "-", inscricao.email,
-      inscricao.telefone || "-", inscricao.cpf || "-", inscricao.curso,
-      pagamento, inscricao.email_recibo || "-", dataFormatada,
+      inscricao.id,
+      inscricao.nome,
+      inscricao.empresa || "-",
+      inscricao.email,
+      inscricao.telefone || "-",
+      inscricao.cpf || "-",
+      inscricao.curso,
+      (Number(inscricao.valor) || 3200).toFixed(2).replace(".", ","),
+      formaPagamento,
+      inscricao.vencimento_boleto || "-",
+      titulosStatus[inscricao.status_pagamento] || inscricao.status_pagamento || "Pendente",
+      inscricao.mp_payment_id || "-",
+      dataPagamentoFormatada,
+      inscricao.email_recibo || "-",
+      dataFormatada,
     ];
   });
 
@@ -112,15 +192,8 @@ function exportarCSV() {
   }
 
   const csv = paraCSV(inscritosAtuais);
-
-  // "\uFEFF" no início (chamado de BOM) avisa o Excel que o arquivo está em
-  // UTF-8, senão acentos e "ç" aparecem corrompidos ao abrir.
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-
-  // Truque padrão pra baixar um arquivo gerado no navegador: cria um link
-  // invisível apontando pro arquivo, "clica" nele via código, e remove em
-  // seguida. O atributo "download" faz o navegador salvar em vez de navegar.
   const link = document.createElement("a");
   link.href = url;
   const dataHoje = new Date().toISOString().slice(0, 10);

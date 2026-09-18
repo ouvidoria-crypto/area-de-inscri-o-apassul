@@ -14,7 +14,14 @@ db.exec(`
     cpf TEXT,
     metodo_pagamento TEXT,
     email_recibo TEXT,
-    aceite_termos INTEGER
+    aceite_termos INTEGER,
+    vencimento_boleto TEXT,
+    status_pagamento TEXT DEFAULT 'pendente',
+    valor REAL DEFAULT 3200.00,
+    mp_preference_id TEXT,
+    mp_payment_id TEXT,
+    mp_init_point TEXT,
+    data_pagamento TEXT
   )
 `);
 
@@ -23,6 +30,7 @@ db.exec(`
     id TEXT PRIMARY KEY,
     nome TEXT NOT NULL,
     vagas INTEGER NOT NULL,
+    preco REAL DEFAULT 3200.00,
     descricao TEXT,
     carga_horaria TEXT,
     data_evento TEXT,
@@ -44,18 +52,27 @@ adicionarColuna("inscricoes", "cpf", "TEXT");
 adicionarColuna("inscricoes", "metodo_pagamento", "TEXT");
 adicionarColuna("inscricoes", "email_recibo", "TEXT");
 adicionarColuna("inscricoes", "aceite_termos", "INTEGER");
+adicionarColuna("inscricoes", "vencimento_boleto", "TEXT");
+adicionarColuna("inscricoes", "status_pagamento", "TEXT DEFAULT 'pendente'");
+adicionarColuna("inscricoes", "valor", "REAL DEFAULT 3200.00");
+adicionarColuna("inscricoes", "mp_preference_id", "TEXT");
+adicionarColuna("inscricoes", "mp_payment_id", "TEXT");
+adicionarColuna("inscricoes", "mp_init_point", "TEXT");
+adicionarColuna("inscricoes", "data_pagamento", "TEXT");
 
+adicionarColuna("cursos", "preco", "REAL DEFAULT 3200.00");
 adicionarColuna("cursos", "descricao", "TEXT");
 adicionarColuna("cursos", "carga_horaria", "TEXT");
 adicionarColuna("cursos", "data_evento", "TEXT");
 adicionarColuna("cursos", "requisitos", "TEXT");
 
 const upsertCurso = db.prepare(`
-  INSERT INTO cursos (id, nome, vagas, descricao, carga_horaria, data_evento, requisitos)
-  VALUES (@id, @nome, @vagas, @descricao, @carga_horaria, @data_evento, @requisitos)
+  INSERT INTO cursos (id, nome, vagas, preco, descricao, carga_horaria, data_evento, requisitos)
+  VALUES (@id, @nome, @vagas, @preco, @descricao, @carga_horaria, @data_evento, @requisitos)
   ON CONFLICT(id) DO UPDATE SET
     nome = excluded.nome,
     vagas = excluded.vagas,
+    preco = excluded.preco,
     descricao = excluded.descricao,
     carga_horaria = excluded.carga_horaria,
     data_evento = excluded.data_evento,
@@ -67,7 +84,8 @@ const cursos = [
     id: "viveiristas",
     nome: "Encontro de Viveiristas",
     vagas: 2,
-    descricao: "Encontro voltado a produtores de mudas de videira, com palestras técnicas e troca de experiências.",
+    preco: 3200.00,
+    descricao: "Encontro voltado a produtores de mudas de videira, com palestras técnicas e troca de experiências.<br><br><strong>💰 Investimento:</strong> R$ 3.200,00",
     carga_horaria: "8 horas",
     data_evento: "15/10/2026",
     requisitos: "Ser produtor ou colaborador de viveiro associado à Apassul.",
@@ -76,7 +94,8 @@ const cursos = [
     id: "sementes",
     nome: "Legislação de Sementes e Mudas",
     vagas: 50,
-    descricao: "Curso sobre a legislação brasileira de produção e comercialização de sementes e mudas.",
+    preco: 3200.00,
+    descricao: "Curso sobre a legislação brasileira de produção e comercialização de sementes e mudas.<br><br><strong>💰 Investimento:</strong> R$ 3.200,00",
     carga_horaria: "16 horas",
     data_evento: "20/10/2026",
     requisitos: "Nenhum pré-requisito.",
@@ -85,7 +104,8 @@ const cursos = [
     id: "rastreabilidade",
     nome: "Rastreabilidade da Aveia",
     vagas: 50,
-    descricao: "Apresenta o Programa de Rastreabilidade e Valorização da Origem da Aveia Granífera.",
+    preco: 3200.00,
+    descricao: "Apresenta o Programa de Rastreabilidade e Valorização da Origem da Aveia Granífera.<br><br><strong>💰 Investimento:</strong> R$ 3.200,00",
     carga_horaria: "4 horas",
     data_evento: "05/11/2026",
     requisitos: "Nenhum pré-requisito.",
@@ -94,6 +114,7 @@ const cursos = [
     id: "lideranca-basaglia",
     nome: "Treinamento - Liderança na Prática: O que separa quem Lidera de quem só Ocupa o Cargo",
     vagas: 30,
+    preco: 3200.00,
     descricao: `Treinamento exclusivo com <strong>Ricardo Basaglia</strong>, Mestre em Administração de Empresas pela FGV/EAESP com extensão em Behavioral Science of Management pela Universidade de Yale, iniciou sua carreira na tecnologia, destacando-se em projetos de transformação digital. Seu currículo também conta com formações na Harvard Business School e na Yale School of Management.
 
 <strong>CEO Brasil da Michael Page, maior empresa de recrutamento de executivos do Brasil e América Latina,</strong> é reconhecido como o maior nome em recrutamento e seleção profissional do país. Além de ser colunista do Estadão e da Rádio Eldorado. Impacta mensalmente mais de 7 milhões de pessoas compartilhando lições de carreira, liderança e desenvolvimento diariamente.

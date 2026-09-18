@@ -16,30 +16,109 @@
   </header>
 
   <section class="caixa-sucesso" aria-labelledby="tituloSucesso">
-    <svg class="icone-confirmacao" viewBox="0 0 52 52" width="64" height="64" aria-hidden="true">
-      <circle cx="26" cy="26" r="25" fill="#2e6b3e"/>
-      <path d="M15 27l7 7 15-15" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <div id="iconeContainer">
+      <svg class="icone-confirmacao" viewBox="0 0 52 52" width="64" height="64" aria-hidden="true">
+        <circle cx="26" cy="26" r="25" fill="#2e6b3e"/>
+        <path d="M15 27l7 7 15-15" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
     <h1 id="tituloSucesso">Inscrição realizada com sucesso</h1>
-    <p>
+
+    <div id="detalhesInscricaoBox" class="detalhes-inscricao-confirmada" hidden>
+      <p id="linhaCurso"><strong>Curso:</strong> <span id="spanCurso">-</span></p>
+      <p id="linhaValor"><strong>Valor do investimento:</strong> <span id="spanValor">R$ 3.200,00</span></p>
+      <p id="linhaMetodo"><strong>Forma de pagamento:</strong> <span id="spanMetodo">-</span></p>
+      <p id="linhaStatus"><strong>Status do pagamento:</strong> <span id="badgeStatus" class="badge-status pendente">Pendente</span></p>
+    </div>
+
+    <p id="textoPrincipal">
       O login e a senha de acesso serão enviados ao e-mail do participante
       informado no formulário
       (<strong id="emailParticipante">o e-mail cadastrado</strong>),
       após a confirmação do pagamento.
     </p>
+
+    <div id="blocoAcaoMP" class="bloco-mp-acao" hidden>
+      <p>Você pode abrir ou concluir seu pagamento a qualquer momento pelo Mercado Pago:</p>
+      <a id="btnIrMP" class="btn-mp-checkout" href="#" target="_blank" rel="noopener noreferrer">
+        Pagar com Mercado Pago (Pix / Boleto)
+      </a>
+    </div>
+
+    <div id="avisoTokenMP" class="aviso-token-mp" hidden>
+      <p>
+        ℹ️ <strong>Nota de Configuração:</strong> O checkout com o Mercado Pago está integrado.
+        Para redirecionamento em produção, insira suas credenciais (Access Token) nas variáveis de ambiente.
+      </p>
+    </div>
+
     <p class="texto-complementar">
-      A efetivação da inscrição ocorre somente após o recebimento e a validação
-      do comprovante de pagamento, conforme os termos e condições apresentados
-      no momento da inscrição.
+      A efetivação da inscrição ocorre após a confirmação do pagamento no Mercado Pago
+      ou recebimento do comprovante, conforme os termos e condições apresentados.
     </p>
+
     <a class="botao-enviar pronto link-voltar" href="/">Voltar à área de inscrição</a>
   </section>
 
   <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id") || sessionStorage.getItem("inscricaoId");
+    const statusURL = params.get("status");
+    const avisoURL = params.get("aviso");
     const emailGuardado = sessionStorage.getItem("emailParticipante");
-    const destino = document.getElementById("emailParticipante");
+
+    const destinoEmail = document.getElementById("emailParticipante");
     if (emailGuardado) {
-      destino.textContent = emailGuardado;
+      destinoEmail.textContent = emailGuardado;
+    }
+
+    if (avisoURL === "mp_token_pendente") {
+      document.getElementById("avisoTokenMP").hidden = false;
+    }
+
+    const nomesMetodo = {
+      pix: "Pix (Mercado Pago)",
+      boleto: "Boleto Bancário (Mercado Pago)",
+      deposito: "Depósito Bancário",
+    };
+
+    if (id) {
+      fetch("/inscricoes/" + id)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((dados) => {
+          if (!dados) return;
+
+          const box = document.getElementById("detalhesInscricaoBox");
+          box.hidden = false;
+
+          document.getElementById("spanCurso").textContent = dados.nome_curso || "-";
+          if (dados.email) destinoEmail.textContent = dados.email;
+
+          let metodoTexto = nomesMetodo[dados.metodo_pagamento] || dados.metodo_pagamento;
+          if (dados.vencimento_boleto) {
+            metodoTexto += " (Vencimento: " + dados.vencimento_boleto + ")";
+          }
+          document.getElementById("spanMetodo").textContent = metodoTexto;
+
+          const badge = document.getElementById("badgeStatus");
+          const statusAtual = statusURL === "aprovado" ? "pago" : (dados.status_pagamento || "pendente");
+          badge.textContent = statusAtual === "pago" ? "PAGO / CONFIRMADO" : "AGUARDANDO PAGAMENTO";
+          badge.className = "badge-status " + (statusAtual === "pago" ? "pago" : "pendente");
+
+          if (statusAtual === "pago" || statusURL === "aprovado") {
+            document.getElementById("tituloSucesso").textContent = "Pagamento Confirmado!";
+            document.getElementById("textoPrincipal").innerHTML =
+              "Seu pagamento foi confirmado com sucesso. O login e a senha de acesso ao treinamento serão enviados para <strong>" +
+              (dados.email || destinoEmail.textContent) + "</strong>.";
+          } else if (dados.mp_init_point && (dados.metodo_pagamento === "pix" || dados.metodo_pagamento === "boleto")) {
+            const blocoMP = document.getElementById("blocoAcaoMP");
+            const btnMP = document.getElementById("btnIrMP");
+            btnMP.href = dados.mp_init_point;
+            blocoMP.hidden = false;
+          }
+        })
+        .catch(console.error);
     }
   </script>
 </body>

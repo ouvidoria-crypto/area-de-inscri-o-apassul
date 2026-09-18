@@ -677,6 +677,233 @@ a.link-voltar {
   }
 }
 
+/* ============================================================================
+   Painel e Calendário de Vencimento do Boleto
+   Aparece quando o participante seleciona a opção "Boleto Bancário"
+   ============================================================================ */
+
+.painel-calendario-boleto {
+  margin-top: 10px;
+  margin-bottom: 12px;
+  background-color: #f0f4f0;
+  border: 2px solid #2e6b3e;
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.painel-calendario-boleto[hidden] {
+  display: none;
+}
+
+.painel-calendario-boleto.animar {
+  animation: entradaSuave 0.35s ease;
+}
+
+.calendario-cabecalho-pergunta {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.icone-pergunta-calendario {
+  color: #2e6b3e;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.textos-pergunta-calendario {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pergunta-principal {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2e6b3e;
+  line-height: 1.4;
+}
+
+.pergunta-instrucao {
+  font-size: 13px;
+  color: #4a5d4e;
+  line-height: 1.4;
+}
+
+.calendario-widget {
+  background-color: #ffffff;
+  border: 1px solid #c9d7cb;
+  border-radius: 6px;
+  padding: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.calendario-topo-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+button.btn-calendario-nav {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  background-color: #ffffff;
+  color: #2e6b3e;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button.btn-calendario-nav:hover:not(:disabled) {
+  background-color: #2e6b3e;
+  color: #ffffff;
+  border-color: #2e6b3e;
+}
+
+button.btn-calendario-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background-color: #f5f5f5;
+  color: #999999;
+  border-color: #e0e0e0;
+}
+
+.calendario-mes-ano {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2e6b3e;
+  text-transform: capitalize;
+}
+
+.calendario-dias-semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2e6b3e;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8e2;
+  margin-bottom: 8px;
+}
+
+.calendario-grade-dias {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+button.dia-celula {
+  aspect-ratio: 1;
+  min-height: 36px;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 500;
+  border: 1px solid transparent;
+  background-color: transparent;
+  color: #222222;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+button.dia-celula.dia-disponivel {
+  border-color: #e5ece5;
+  background-color: #fbfdfb;
+}
+
+button.dia-celula.dia-disponivel:hover {
+  background-color: #2e6b3e;
+  color: #ffffff;
+  border-color: #2e6b3e;
+  font-weight: 700;
+}
+
+button.dia-celula.dia-hoje {
+  border-color: #2e6b3e;
+  color: #2e6b3e;
+  font-weight: 700;
+}
+
+button.dia-celula.dia-selecionado {
+  background-color: #2e6b3e !important;
+  color: #ffffff !important;
+  border-color: #2e6b3e !important;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(46, 107, 62, 0.35);
+}
+
+button.dia-celula.dia-desabilitado {
+  color: #bbbbbb;
+  background-color: #f7f7f7;
+  border-color: transparent;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+div.dia-celula.dia-vazio {
+  aspect-ratio: 1;
+  min-height: 36px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.feedback-vencimento {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background-color: #eaf3eb;
+  border: 1px solid #2e6b3e;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: #2e6b3e;
+  animation: apareceBalao 0.2s ease;
+}
+
+.feedback-vencimento[hidden] {
+  display: none;
+}
+
+.feedback-vencimento-conteudo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+button.btn-limpar-data {
+  background: none;
+  border: none;
+  color: #2e6b3e;
+  text-decoration: underline;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 3px;
+}
+
+button.btn-limpar-data:hover {
+  background-color: rgba(46, 107, 62, 0.1);
+}
+
 /* ==========================================================================
    Ajustes pra tela pequena (celular). "@media (max-width: 600px)" faz essas
    regras só valerem quando a tela é mais estreita que 600px - o resto do
@@ -735,4 +962,151 @@ a.link-voltar {
   .balao-erro {
     max-width: calc(100vw - 32px);
   }
+}
+
+/* ============================================================================
+   Estilos de Pagamento e Mercado Pago
+   ============================================================================ */
+
+.investimento-curso {
+  font-size: 15px;
+  color: #1b4d29;
+  background-color: #eaf3ec;
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: inline-block;
+  margin: 4px 0 10px 0;
+  border: 1px solid #c2e0c9;
+}
+
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-status.pago {
+  background-color: #e6f4ea;
+  color: #137333;
+  border: 1px solid #ceead6;
+}
+
+.badge-status.pendente {
+  background-color: #fef7e0;
+  color: #b06000;
+  border: 1px solid #feefc3;
+}
+
+.badge-status.cancelado,
+.badge-status.rejeitado {
+  background-color: #fce8e6;
+  color: #c5221f;
+  border: 1px solid #fad2cf;
+}
+
+.tag-vencimento {
+  color: #555;
+  font-size: 11px;
+  background: #f1f3f4;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-top: 3px;
+}
+
+.texto-mp-id {
+  color: #666;
+  font-size: 11px;
+}
+
+.select-status-admin {
+  padding: 4px 8px;
+  font-size: 13px;
+  border-radius: 4px;
+  border: 1px solid #c9c9c9;
+  background-color: #ffffff;
+  color: #333333;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.select-status-admin:focus {
+  outline: 2px solid #2e6b3e;
+}
+
+.msg-sucesso {
+  color: #137333;
+  font-weight: 600;
+}
+
+.msg-erro {
+  color: #c5221f;
+  font-weight: 600;
+}
+
+.detalhes-inscricao-confirmada {
+  background-color: #f8faf8;
+  border: 1px solid #d4e5d7;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0 20px;
+  text-align: left;
+}
+
+.detalhes-inscricao-confirmada p {
+  margin: 6px 0;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+.bloco-mp-acao {
+  margin: 20px 0;
+  padding: 18px;
+  background: #f0f7ff;
+  border: 1px solid #b9d8ff;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.bloco-mp-acao p {
+  font-size: 14px;
+  margin: 0 0 12px;
+  color: #0b498f;
+}
+
+.btn-mp-checkout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #009ee3;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 15px;
+  box-shadow: 0 3px 8px rgba(0, 158, 227, 0.3);
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-mp-checkout:hover {
+  background-color: #0087c2;
+  transform: translateY(-1px);
+}
+
+.aviso-token-mp {
+  background-color: #fff9e6;
+  border: 1px solid #ffe28a;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  text-align: left;
+  font-size: 13px;
+  color: #7a5800;
 }

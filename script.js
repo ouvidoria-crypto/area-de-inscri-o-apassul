@@ -8,16 +8,20 @@ const overlayConfirmacao = document.getElementById("overlayConfirmacao");
 // desfocado. Em seguida, abre a página de confirmação (ou imediatamente,
 // se a pessoa clicar no aviso).
 let temporizadorConfirmacao = null;
+let urlDestinoConfirmacao = "/inscricao-confirmada.html";
 
 function irParaPaginaConfirmacao() {
   clearTimeout(temporizadorConfirmacao);
-  window.location.href = "/inscricao-confirmada.html";
+  window.location.href = urlDestinoConfirmacao;
 }
 
-function mostrarConfirmacao() {
+function mostrarConfirmacao(urlPersonalizada) {
+  if (urlPersonalizada) {
+    urlDestinoConfirmacao = urlPersonalizada;
+  }
   overlayConfirmacao.hidden = false;
   clearTimeout(temporizadorConfirmacao);
-  temporizadorConfirmacao = setTimeout(irParaPaginaConfirmacao, 2200);
+  temporizadorConfirmacao = setTimeout(irParaPaginaConfirmacao, 2000);
 }
 
 overlayConfirmacao.addEventListener("click", irParaPaginaConfirmacao);
@@ -280,16 +284,21 @@ function mostrarDetalhes(idCurso) {
     detalhesCurso.innerHTML = "";
     return;
   }
+
+  const precoFormatado = Number(curso.preco || 3200).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   detalhesCurso.innerHTML = `
     <p class="nome-curso">${curso.nome}</p>
-    <p class="descricao-curso">${curso.descricao || "-"}</p>
+    <div><span class="investimento-curso"><strong>💰 Investimento:</strong> ${precoFormatado}</span></div>
+    <div class="descricao-curso">${curso.descricao || "-"}</div>
   `;
 
   // Truque para "reiniciar" a animação toda vez: removemos a classe,
   // forçamos o navegador a recalcular o layout (a linha do offsetWidth
-  // faz isso), e só então adicionamos a classe de novo. Sem esse truque,
-  // a animação só rodaria na primeira vez, porque o navegador ignora
-  // adicionar uma classe que já estava lá.
+  // faz isso), e só então adicionamos a classe de novo.
   detalhesCurso.classList.remove("animar");
   void detalhesCurso.offsetWidth;
   detalhesCurso.classList.add("animar");
@@ -298,6 +307,166 @@ function mostrarDetalhes(idCurso) {
 selectCurso.addEventListener("change", (evento) => {
   mostrarDetalhes(evento.target.value);
 });
+
+// ============================================================================
+// Calendário funcional para escolha do vencimento do boleto bancário
+// ============================================================================
+
+const painelCalendarioBoleto = document.getElementById("painelCalendarioBoleto");
+const btnMesAnterior = document.getElementById("btnMesAnterior");
+const btnMesProximo = document.getElementById("btnMesProximo");
+const mesAnoDisplay = document.getElementById("mesAnoDisplay");
+const gradeDiasCalendario = document.getElementById("gradeDiasCalendario");
+const feedbackVencimento = document.getElementById("feedbackVencimento");
+const dataVencimentoFormatada = document.getElementById("dataVencimentoFormatada");
+const btnLimparDataVencimento = document.getElementById("btnLimparDataVencimento");
+const campoVencimentoBoleto = document.getElementById("vencimentoBoleto");
+
+// Limite final solicitado: até 15 de outubro de 2026
+const DATA_LIMITE_MAXIMA = new Date(2026, 9, 15, 23, 59, 59, 999);
+const NOMES_MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+const NOMES_DIAS_SEMANA = [
+  "domingo", "segunda-feira", "terça-feira", "quarta-feira",
+  "quinta-feira", "sexta-feira", "sábado"
+];
+
+// Data mínima selecionável: hoje (ou 01/10/2026 caso a data do sistema seja posterior a 15/10/2026)
+const hojeNormalizado = new Date();
+hojeNormalizado.setHours(0, 0, 0, 0);
+
+const dataMinimaPermitida = hojeNormalizado <= DATA_LIMITE_MAXIMA
+  ? hojeNormalizado
+  : new Date(2026, 9, 1);
+
+let anoCalendario = dataMinimaPermitida.getFullYear();
+let mesCalendario = dataMinimaPermitida.getMonth();
+let dataSelecionadaBoleto = null;
+
+function renderizarCalendario() {
+  mesAnoDisplay.textContent = `${NOMES_MESES[mesCalendario]} de ${anoCalendario}`;
+
+  // Controle de navegação anterior/próximo
+  const fimMesAnterior = new Date(anoCalendario, mesCalendario, 0, 23, 59, 59);
+  btnMesAnterior.disabled = fimMesAnterior < dataMinimaPermitida;
+
+  const inicioProximoMes = new Date(anoCalendario, mesCalendario + 1, 1, 0, 0, 0);
+  btnMesProximo.disabled = inicioProximoMes > DATA_LIMITE_MAXIMA;
+
+  gradeDiasCalendario.innerHTML = "";
+
+  const primeiroDiaSemana = new Date(anoCalendario, mesCalendario, 1).getDay();
+  const totalDiasNoMes = new Date(anoCalendario, mesCalendario + 1, 0).getDate();
+
+  // Células vazias para preencher os dias antes do início do mês (domingo a sábado)
+  for (let i = 0; i < primeiroDiaSemana; i++) {
+    const celulaVazia = document.createElement("div");
+    celulaVazia.className = "dia-celula dia-vazio";
+    celulaVazia.setAttribute("aria-hidden", "true");
+    gradeDiasCalendario.appendChild(celulaVazia);
+  }
+
+  for (let dia = 1; dia <= totalDiasNoMes; dia++) {
+    const dataDia = new Date(anoCalendario, mesCalendario, dia, 0, 0, 0);
+    const estaDesabilitado = dataDia < dataMinimaPermitida || dataDia > DATA_LIMITE_MAXIMA;
+    const ehHoje = dataDia.getTime() === hojeNormalizado.getTime();
+    const ehSelecionado = dataSelecionadaBoleto && dataDia.getTime() === dataSelecionadaBoleto.getTime();
+
+    const btnDia = document.createElement("button");
+    btnDia.type = "button";
+    btnDia.className = "dia-celula";
+    btnDia.textContent = String(dia);
+
+    if (estaDesabilitado) {
+      btnDia.classList.add("dia-desabilitado");
+      btnDia.disabled = true;
+      btnDia.setAttribute("aria-disabled", "true");
+    } else {
+      btnDia.classList.add("dia-disponivel");
+      btnDia.addEventListener("click", () => selecionarData(dataDia));
+    }
+
+    if (ehHoje) {
+      btnDia.classList.add("dia-hoje");
+      btnDia.title = "Hoje";
+    }
+
+    if (ehSelecionado) {
+      btnDia.classList.add("dia-selecionado");
+      btnDia.setAttribute("aria-pressed", "true");
+    }
+
+    gradeDiasCalendario.appendChild(btnDia);
+  }
+}
+
+function selecionarData(data) {
+  dataSelecionadaBoleto = data;
+  const diaFormatado = String(data.getDate()).padStart(2, "0");
+  const mesFormatado = String(data.getMonth() + 1).padStart(2, "0");
+  const anoFormatado = data.getFullYear();
+  const dataFinalTexto = `${diaFormatado}/${mesFormatado}/${anoFormatado}`;
+
+  campoVencimentoBoleto.value = dataFinalTexto;
+  dataVencimentoFormatada.textContent = `${dataFinalTexto} (${NOMES_DIAS_SEMANA[data.getDay()]})`;
+  feedbackVencimento.hidden = false;
+
+  esconderBalaoErro();
+  renderizarCalendario();
+  atualizarBotaoEnviar();
+}
+
+function limparDataSelecionada() {
+  dataSelecionadaBoleto = null;
+  campoVencimentoBoleto.value = "";
+  feedbackVencimento.hidden = true;
+  renderizarCalendario();
+  atualizarBotaoEnviar();
+}
+
+btnMesAnterior.addEventListener("click", () => {
+  mesCalendario--;
+  if (mesCalendario < 0) {
+    mesCalendario = 11;
+    anoCalendario--;
+  }
+  renderizarCalendario();
+});
+
+btnMesProximo.addEventListener("click", () => {
+  mesCalendario++;
+  if (mesCalendario > 11) {
+    mesCalendario = 0;
+    anoCalendario++;
+  }
+  renderizarCalendario();
+});
+
+btnLimparDataVencimento.addEventListener("click", limparDataSelecionada);
+
+function alternarCalendarioBoleto() {
+  const radioSelecionado = document.querySelector('input[name="metodoPagamento"]:checked');
+  const ehBoleto = radioSelecionado && radioSelecionado.value === "boleto";
+
+  if (ehBoleto) {
+    painelCalendarioBoleto.hidden = false;
+    painelCalendarioBoleto.classList.remove("animar");
+    void painelCalendarioBoleto.offsetWidth;
+    painelCalendarioBoleto.classList.add("animar");
+    renderizarCalendario();
+  } else {
+    painelCalendarioBoleto.hidden = true;
+  }
+  atualizarBotaoEnviar();
+}
+
+document.querySelectorAll('input[name="metodoPagamento"]').forEach((radio) => {
+  radio.addEventListener("change", alternarCalendarioBoleto);
+});
+
+renderizarCalendario();
 
 // Confere se todo campo obrigatório já está preenchido (mesma checagem que
 // já era feita só no momento de enviar, agora usada também pra controlar a
@@ -309,9 +478,11 @@ function formularioCompleto() {
   const emailRecibo = document.getElementById("emailRecibo").value.trim();
   const aceiteTermos = document.getElementById("aceiteTermos").checked;
   const metodoPagamento = document.querySelector('input[name="metodoPagamento"]:checked');
+  const vencimentoBoleto = campoVencimentoBoleto.value.trim();
+  const boletoValido = metodoPagamento && metodoPagamento.value === "boleto" ? Boolean(vencimentoBoleto) : true;
 
   return Boolean(
-    curso && empresa && email && emailRecibo && metodoPagamento && aceiteTermos &&
+    curso && empresa && email && emailRecibo && metodoPagamento && aceiteTermos && boletoValido &&
     nomeValido(campoNome.value) &&
     telefoneValido(campoTelefone.value) &&
     cpfValido(campoCPF.value)
@@ -442,6 +613,14 @@ formulario.addEventListener("submit", async function (evento) {
     mostrarErroCampo(formulario.querySelector("fieldset"), "Selecione um método de pagamento.");
     return;
   }
+  const vencimentoBoleto = campoVencimentoBoleto.value.trim();
+  if (metodoPagamento === "boleto" && !vencimentoBoleto) {
+    mostrarErroCampo(
+      document.getElementById("calendarioWidget"),
+      "Por favor, selecione no calendário a melhor data para o vencimento do boleto."
+    );
+    return;
+  }
   if (!emailRecibo) {
     mostrarErroCampo(document.getElementById("emailRecibo"), "Informe o e-mail para envio do recibo.");
     return;
@@ -461,6 +640,7 @@ formulario.addEventListener("submit", async function (evento) {
       body: JSON.stringify({
         curso, empresa, nome, email, telefone, cpf,
         metodoPagamento, emailRecibo, aceiteTermos,
+        vencimentoBoleto: metodoPagamento === "boleto" ? vencimentoBoleto : null,
       }),
     });
 
@@ -469,7 +649,31 @@ formulario.addEventListener("submit", async function (evento) {
     if (resposta.ok) {
       esconderBalaoErro();
       sessionStorage.setItem("emailParticipante", email);
-      mostrarConfirmacao();
+      if (dados.id) {
+        sessionStorage.setItem("inscricaoId", dados.id);
+      }
+
+      // Se foi gerado o link do Mercado Pago (Pix ou Boleto)
+      if (dados.initPoint && !dados.modoSimulado) {
+        const textoOverlay = overlayConfirmacao.querySelector(".texto-confirmacao");
+        if (textoOverlay) {
+          textoOverlay.textContent = "Inscrição confirmada! Encaminhando para o Mercado Pago...";
+        }
+        overlayConfirmacao.hidden = false;
+        btnEnviar.disabled = true;
+        btnEnviar.textContent = "Redirecionando para o Mercado Pago...";
+
+        setTimeout(() => {
+          window.location.href = dados.initPoint;
+        }, 1000);
+        return;
+      }
+
+      // Se for modo simulado (sem token) ou Depósito Bancário
+      const urlConfirmacao = dados.id
+        ? `/inscricao-confirmada.html?id=${dados.id}${dados.modoSimulado ? "&aviso=mp_token_pendente" : ""}`
+        : "/inscricao-confirmada.html";
+      mostrarConfirmacao(urlConfirmacao);
     } else {
       mostrarErroCampo(btnEnviar, dados.erro || "Não foi possível enviar a inscrição.");
     }
