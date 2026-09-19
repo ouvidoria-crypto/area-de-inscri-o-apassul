@@ -711,14 +711,6 @@ document.addEventListener("DOMContentLoaded", () => {
     executarImpressaoCertificado();
   }
 
-    // Fallback caso html2pdf não execute no ambiente
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = txtOriginal;
-    }
-    executarImpressaoCertificado();
-  }
-
   function executarImpressaoCertificado() {
     if (dadosAlunoCache) {
       renderizarCertificado(dadosAlunoCache);
