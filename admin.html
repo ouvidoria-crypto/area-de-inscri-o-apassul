@@ -13,6 +13,107 @@
 
   <h1>Painel de Inscrições - Apassul</h1>
 
+  <!-- GERENCIADOR DE CURSOS E CERTIFICADOS -->
+  <section class="secao-admin-cursos" id="secaoGerenciadorCursos">
+    <div class="cabecalho-secao">
+      <h2>Cursos e modelos de certificado</h2>
+      <button type="button" class="btn-secundario" id="btnNovoCurso" onclick="abrirFormularioCurso()">
+        + Novo curso
+      </button>
+    </div>
+
+    <!-- Formulário expansível de criação / edição -->
+    <div class="formulario-curso-card" id="formCursoCard">
+      <h3 id="formCursoTitulo" style="margin-top: 0; margin-bottom: 16px; font-size: 16px; color: #0f172a;">Cadastrar Novo Curso</h3>
+      <form id="formCurso" onsubmit="salvarCurso(event)">
+        <input type="hidden" id="cursoModo" value="criar">
+        
+        <div class="grid-formulario-curso">
+          <div class="campo-form-admin" style="grid-column: span 2;">
+            <label for="cursoNome">Nome do Curso / Treinamento *</label>
+            <input type="text" id="cursoNome" placeholder="Ex: Treinamento Avançado de Amostragem de Sementes" required>
+            <small>Aparecerá no site, no formulário de inscrição e com destaque no Certificado Oficial.</small>
+          </div>
+
+          <div class="campo-form-admin">
+            <label for="cursoId">Código / Identificador Único (Opcional)</label>
+            <input type="text" id="cursoId" placeholder="Ex: amostragem-avancada">
+            <small>Usado na URL e no banco. Deixe vazio para gerar automaticamente.</small>
+          </div>
+
+          <div class="campo-form-admin">
+            <label for="cursoCargaHoraria">Carga Horária (Certificado) *</label>
+            <input type="text" id="cursoCargaHoraria" placeholder="Ex: 16 horas, 24 horas" required>
+            <small>Será impressa no texto oficial do certificado emitido.</small>
+          </div>
+
+          <div class="campo-form-admin">
+            <label for="cursoDataEvento">Data da Realização / Edição *</label>
+            <input type="text" id="cursoDataEvento" placeholder="Ex: 15 a 17 de Outubro de 2026" required>
+            <small>Aparecerá na declaração de conclusão do certificado.</small>
+          </div>
+
+          <div class="campo-form-admin">
+            <label for="cursoDataFim">Data de Término do Curso (Liberação de Certificado)</label>
+            <input type="date" id="cursoDataFim">
+            <small>Até essa data, o certificado permanecerá bloqueado no portal do aluno.</small>
+          </div>
+
+          <div class="campo-form-admin">
+            <label for="cursoVagas">Vagas Totais *</label>
+            <input type="number" id="cursoVagas" min="1" max="1000" placeholder="Ex: 40" required>
+          </div>
+
+          <div class="campo-form-admin">
+            <label for="cursoPreco">Valor da Inscrição (R$) *</label>
+            <input type="number" id="cursoPreco" step="0.01" min="0" placeholder="Ex: 3200.00" required>
+          </div>
+
+          <div class="campo-form-admin" style="grid-column: span 2;">
+            <label for="cursoDescricao">Descrição do Treinamento</label>
+            <textarea id="cursoDescricao" placeholder="Objetivos do curso, metodologia, temas abordados..."></textarea>
+          </div>
+
+          <div class="campo-form-admin" style="grid-column: span 2;">
+            <label for="cursoRequisitos">Requisitos / Público-Alvo</label>
+            <input type="text" id="cursoRequisitos" placeholder="Ex: Engenheiros Agrônomos, Responsáveis Técnicos e Amostradores">
+          </div>
+        </div>
+
+        <div class="acoes-form-admin">
+          <button type="button" class="btn-admin-cancelar" onclick="fecharFormularioCurso()">Cancelar</button>
+          <button type="submit" class="btn-admin-primario" id="btnSalvarCurso">
+            💾 Salvar Curso
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tabela com os cursos existentes -->
+    <div class="tabela-scroll">
+      <table id="tabelaGerenciarCursos">
+        <thead>
+          <tr>
+            <th>Curso</th>
+            <th>Carga Horária</th>
+            <th>Data do Evento</th>
+            <th>Data Término</th>
+            <th>Status</th>
+            <th>Valor</th>
+            <th>Vagas</th>
+            <th>Inscritos</th>
+            <th>Pagos</th>
+            <th>Vagas Restantes</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="corpoTabelaCursos">
+          <tr><td colspan="11" style="text-align: center; color: #64748b; padding: 18px;">Carregando cursos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <h2>Resumo por curso</h2>
   <div class="tabela-scroll">
     <table id="tabelaResumo">

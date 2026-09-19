@@ -63,6 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalCertificados = document.getElementById("modalCertificados");
   const blocoCertificadoDisponivel = document.getElementById("blocoCertificadoDisponivel");
   const blocoCertificadoPendente = document.getElementById("blocoCertificadoPendente");
+  const overlayBloqueioCertificado = document.getElementById("overlayBloqueioCertificado");
+  const overlayBloqueioDataFim = document.getElementById("overlayBloqueioDataFim");
   const certNomeAluno = document.getElementById("certNomeAluno");
   const certCpfAluno = document.getElementById("certCpfAluno");
   const certNomeCurso = document.getElementById("certNomeCurso");
@@ -71,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const certCodigoAutenticidade = document.getElementById("certCodigoAutenticidade");
   const btnCopiarCodigoCertificado = document.getElementById("btnCopiarCodigoCertificado");
   const btnAdicionarLinkedIn = document.getElementById("btnAdicionarLinkedIn");
-  const btnPostarFeedLinkedIn = document.getElementById("btnPostarFeedLinkedIn");
   const btnBaixarPDFCertificado = document.getElementById("btnBaixarPDFCertificado");
   const btnImprimirCertificado = document.getElementById("btnImprimirCertificado");
   const selectCursoCertificado = document.getElementById("selectCursoCertificado");
@@ -245,7 +246,11 @@ document.addEventListener("DOMContentLoaded", () => {
           selectCursoAtivoTopbar.addEventListener("change", (e) => {
             const novoId = e.target.value;
             sessionStorage.setItem("curso_ativo_inscricao_id", novoId);
-            carregarPainel(novoId);
+            carregarPainel(novoId).then(() => {
+              if (modalCertificados && !modalCertificados.hidden && modalCertificados.style.display !== "none") {
+                renderizarCertificado(dadosAlunoCache);
+              }
+            });
           });
         }
       }
@@ -447,45 +452,10 @@ document.addEventListener("DOMContentLoaded", () => {
       status_pagamento: "pago"
     }];
 
-    // Configura o seletor dinâmico de cursos no modal de certificados
-    if (selectCursoCertificado && listaCursos.length > 0) {
-      const valorAtual = cursoSelecionadoId || selectCursoCertificado.value;
-      selectCursoCertificado.innerHTML = "";
-      listaCursos.forEach((c) => {
-        const opt = document.createElement("option");
-        const idVal = c.id || c.curso_id || c.inscricao_id;
-        opt.value = idVal;
-        opt.textContent = `🎓 ${c.nome || c.nome_curso || "Treinamento Apassul"}`;
-        selectCursoCertificado.appendChild(opt);
-      });
+    // O curso ativo no modal de certificados é SEMPRE sincronizado com o curso selecionado na barra horizontal superior
+    const cursoAtivo = dados.curso || listaCursos[0];
 
-      if (valorAtual) {
-        selectCursoCertificado.value = valorAtual;
-      }
-
-      if (!selectCursoCertificado.dataset.ouvinteConfigurado) {
-        selectCursoCertificado.dataset.ouvinteConfigurado = "true";
-        selectCursoCertificado.addEventListener("change", (e) => {
-          renderizarCertificado(dadosAlunoCache, e.target.value);
-        });
-      }
-    }
-
-    // Identifica o curso específico a ser exibido no certificado
-    let cursoAtivo = null;
-    const idBusca = cursoSelecionadoId || (selectCursoCertificado ? selectCursoCertificado.value : null);
-    if (idBusca) {
-      cursoAtivo = listaCursos.find(
-        (c) => String(c.id) === String(idBusca) ||
-               String(c.curso_id) === String(idBusca) ||
-               String(c.inscricao_id) === String(idBusca)
-      );
-    }
-    if (!cursoAtivo) {
-      cursoAtivo = dados.curso || listaCursos[0];
-    }
-
-    // Garante que o certificado esteja SEMPRE visível, centralizado e nunca em branco
+    // Garante que o container do certificado esteja ativo
     if (blocoCertificadoDisponivel) {
       blocoCertificadoDisponivel.hidden = false;
       blocoCertificadoDisponivel.removeAttribute("hidden");
@@ -516,6 +486,70 @@ document.addEventListener("DOMContentLoaded", () => {
     const idFormatado = String(idInsc).padStart(4, "0").slice(-4);
     if (certCodigoAutenticidade) {
       certCodigoAutenticidade.textContent = `APS-2026-${idFormatado}-${cpfSufixo}`;
+    }
+
+    // ==========================================================
+    // VERIFICAÇÃO DE BLOQUEIO DE CERTIFICADO DE CURSO EM ANDAMENTO
+    // Se houver data_fim_curso e a data atual for anterior ao término, o certificado fica bloqueado
+    // ==========================================================
+    const dataFimStr = cursoAtivo.data_fim_curso || dados.curso?.data_fim_curso;
+    let cursoBloqueado = false;
+    let dataFimFormatada = "";
+
+    if (dataFimStr) {
+      try {
+        const partes = dataFimStr.split("-");
+        if (partes.length === 3) {
+          const ano = parseInt(partes[0], 10);
+          const mes = parseInt(partes[1], 10) - 1;
+          const dia = parseInt(partes[2], 10);
+          const dataFim = new Date(ano, mes, dia, 23, 59, 59, 999);
+          const agora = new Date();
+          if (agora < dataFim) {
+            cursoBloqueado = true;
+            dataFimFormatada = `${String(dia).padStart(2, '0')}/${String(mes + 1).padStart(2, '0')}/${ano}`;
+          }
+        }
+      } catch (errData) {
+        console.warn("Erro ao processar data_fim_curso:", errData);
+      }
+    }
+
+    // Aplica o overlay opaco com cadeado e mensagem oficial se estiver bloqueado
+    const blocoBotoesAcaoCertificado = document.getElementById("blocoBotoesAcaoCertificado");
+
+    if (cursoBloqueado) {
+      if (overlayBloqueioCertificado) {
+        overlayBloqueioCertificado.hidden = false;
+        overlayBloqueioCertificado.removeAttribute("hidden");
+        overlayBloqueioCertificado.style.display = "flex";
+      }
+      if (overlayBloqueioDataFim) {
+        overlayBloqueioDataFim.textContent = dataFimFormatada 
+          ? `⏳ Término previsto para ${dataFimFormatada} • Curso em andamento` 
+          : `⏳ Curso em andamento`;
+      }
+      if (blocoBotoesAcaoCertificado) {
+        blocoBotoesAcaoCertificado.style.display = "none";
+      }
+      // Desabilita botões de download e impressão por segurança
+      if (btnBaixarPDFCertificado) btnBaixarPDFCertificado.disabled = true;
+      if (btnImprimirCertificado) btnImprimirCertificado.disabled = true;
+      if (btnAdicionarLinkedIn) btnAdicionarLinkedIn.disabled = true;
+      if (btnCopiarCodigoCertificado) btnCopiarCodigoCertificado.disabled = true;
+    } else {
+      if (overlayBloqueioCertificado) {
+        overlayBloqueioCertificado.hidden = true;
+        overlayBloqueioCertificado.setAttribute("hidden", "hidden");
+        overlayBloqueioCertificado.style.display = "none";
+      }
+      if (blocoBotoesAcaoCertificado) {
+        blocoBotoesAcaoCertificado.style.display = "flex";
+      }
+      if (btnBaixarPDFCertificado) btnBaixarPDFCertificado.disabled = false;
+      if (btnImprimirCertificado) btnImprimirCertificado.disabled = false;
+      if (btnAdicionarLinkedIn) btnAdicionarLinkedIn.disabled = false;
+      if (btnCopiarCodigoCertificado) btnCopiarCodigoCertificado.disabled = false;
     }
   }
 
@@ -773,11 +807,87 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function criarElementoCertificadoImpressao({
+    nomeAluno,
+    cpfAluno,
+    nomeCurso,
+    cargaHoraria,
+    dataCurso,
+    codigoAutenticidade
+  }) {
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.top = "-9999px";
+    container.style.left = "-9999px";
+    container.style.width = "278mm";
+    container.style.height = "190mm";
+    container.style.margin = "0";
+    container.style.padding = "0";
+    container.style.zIndex = "-9999";
+    container.style.background = "#ffffff";
+
+    container.innerHTML = `
+      <div style="background: #ffffff; border: 2mm solid #2e6b3e; border-radius: 4px; padding: 4mm; margin: 0; width: 278mm; max-width: 278mm; height: 190mm; max-height: 190mm; box-sizing: border-box; font-family: 'Public Sans', system-ui, -apple-system, sans-serif;">
+        <div style="border: 1mm dashed #2e6b3e; border-radius: 3px; padding: 7mm 11mm 6mm; background: #ffffff; text-align: center; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box;">
+          
+          <div style="margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+            <img src="logo-apassul.png" alt="Apassul" style="height: 44px; width: auto; object-fit: contain; margin-bottom: 3px; display: inline-block;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #2e6b3e; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 3px;">
+              Apassul &bull; Associação dos Produtores e Comerciantes de Sementes e Mudas do RS
+            </div>
+            <div style="font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: 1.2px; text-transform: uppercase; margin: 0;">
+              CERTIFICADO DE CONCLUSÃO
+            </div>
+          </div>
+
+          <div style="padding: 10px 0; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+            <p style="font-size: 14px; color: #334155; line-height: 1.55; margin: 0 auto; max-width: 740px;">
+              Certificamos que <strong style="color: #0f172a; font-size: 16px; font-weight: 700;">${nomeAluno}</strong>,
+              inscrito(a) sob o CPF nº <strong>${cpfAluno}</strong>,
+              concluiu com êxito e aproveitamento técnico o treinamento de capacitação:
+            </p>
+            <div style="font-size: 16px; font-weight: 700; color: #1e522d; margin: 10px auto; padding: 7px 20px; background: #f0fdf4; border-radius: 6px; display: inline-block; border: 1px solid #bbf7d0; line-height: 1.35; max-width: 92%;">
+              ${nomeCurso}
+            </div>
+            <p style="font-size: 13.5px; color: #64748b; margin: 4px 0 0;">
+              Carga horária total de <strong>${cargaHoraria}</strong> &bull;
+              Realizado em <strong>${dataCurso}</strong>.
+            </p>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0; gap: 16px;">
+            <div style="text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 175px;">
+              <div style="width: 175px; height: 1.5px; background: #0f172a; margin-bottom: 5px;"></div>
+              <div style="font-size: 11px; font-weight: 700; color: #0f172a; letter-spacing: 0.3px; text-transform: uppercase;">Diretor Executivo</div>
+              <div style="font-size: 10px; font-weight: 600; color: #475569; margin-top: 1px;">Apassul</div>
+            </div>
+            <div style="text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 175px;">
+              <div style="width: 175px; height: 1.5px; background: #0f172a; margin-bottom: 5px;"></div>
+              <div style="font-size: 11px; font-weight: 700; color: #0f172a; letter-spacing: 0.3px; text-transform: uppercase;">Desenvolvedor de Mercado</div>
+              <div style="font-size: 10px; font-weight: 600; color: #475569; margin-top: 1px;">Apassul</div>
+            </div>
+            <div style="text-align: right; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 6px; white-space: nowrap; min-width: 155px;">
+              <div style="font-size: 16px; margin-bottom: 2px;">🛡️</div>
+              <div style="font-size: 9px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; letter-spacing: 0.5px;">Autenticidade Digital Registrada</div>
+              <div style="font-size: 11.5px; font-weight: 700; color: #0f172a; font-family: monospace; letter-spacing: 0.5px; margin-top: 2px;">${codigoAutenticidade}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+    return container;
+  }
+
   async function baixarCertificadoPDF() {
     const docElemento = document.getElementById("documentoCertificado");
     if (!docElemento) return;
 
     renderizarCertificado(dadosAlunoCache);
+
+    if (overlayBloqueioCertificado && !overlayBloqueioCertificado.hidden && overlayBloqueioCertificado.style.display !== "none") {
+      return;
+    }
 
     const btn = btnBaixarPDFCertificado;
     const txtOriginal = btn ? btn.innerHTML : "";
@@ -788,6 +898,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const nomeRaw = (certNomeAluno?.textContent || "Participante").trim();
     const cursoRaw = (certNomeCurso?.textContent || "Curso").trim();
+    const cpfRaw = (certCpfAluno?.textContent || "000.000.000-00").trim();
+    const cargaRaw = (certCargaHoraria?.textContent || "16 horas").trim();
+    const dataRaw = (certDataCurso?.textContent || "Edição Oficial 2026").trim();
+    const codigoRaw = (certCodigoAutenticidade?.textContent || "APS-2026-CERT-0001").trim();
+
     const nomeLimpo = nomeRaw
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -801,6 +916,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const nomeArquivo = `Certificado_Apassul_${cursoLimpo}_${nomeLimpo || "Aluno"}.pdf`;
 
     if (window.html2pdf) {
+      // Elemento dedicado com o modelo exato de impressão A4 Paisagem (278mm x 190mm)
+      const container = criarElementoCertificadoImpressao({
+        nomeAluno: nomeRaw,
+        cpfAluno: cpfRaw,
+        nomeCurso: cursoRaw,
+        cargaHoraria: cargaRaw,
+        dataCurso: dataRaw,
+        codigoAutenticidade: codigoRaw
+      });
+      document.body.appendChild(container);
+
       // Configuração A4 Paisagem (297mm x 210mm) com margens otimizadas para preencher mais a folha (278mm x 190mm)
       const opt = {
         margin: [9, 9, 9, 9],
@@ -824,7 +950,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       try {
-        await window.html2pdf().set(opt).from(docElemento).toPdf().get("pdf").then((pdf) => {
+        await window.html2pdf().set(opt).from(container.firstElementChild).toPdf().get("pdf").then((pdf) => {
           // Garante que NUNCA exista uma segunda página cortada ou em branco
           while (pdf.internal.getNumberOfPages() > 1) {
             pdf.deletePage(2);
@@ -841,6 +967,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       } catch (err) {
         console.error("Erro ao gerar PDF via html2pdf:", err);
+      } finally {
+        if (container && container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
       }
     }
 
@@ -855,6 +985,239 @@ document.addEventListener("DOMContentLoaded", () => {
   function executarImpressaoCertificado() {
     renderizarCertificado(dadosAlunoCache);
 
+    if (overlayBloqueioCertificado && !overlayBloqueioCertificado.hidden && overlayBloqueioCertificado.style.display !== "none") {
+      return;
+    }
+
+    const docCert = document.getElementById("documentoCertificado");
+    if (!docCert) {
+      dispararImpressaoDireta();
+      return;
+    }
+
+    try {
+      let iframe = document.getElementById("iframeImpressaoCertificado");
+      if (!iframe) {
+        iframe = document.createElement("iframe");
+        iframe.id = "iframeImpressaoCertificado";
+        iframe.style.position = "fixed";
+        iframe.style.top = "-9999px";
+        iframe.style.left = "-9999px";
+        iframe.style.width = "297mm";
+        iframe.style.height = "210mm";
+        iframe.style.border = "none";
+        document.body.appendChild(iframe);
+      }
+
+      const cloneCert = docCert.cloneNode(true);
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Certificado - APASSUL</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 8mm;
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+              width: 100%;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .certificado-visual-card {
+              background: #ffffff;
+              border: 2mm solid #2e6b3e;
+              border-radius: 4px;
+              padding: 4mm;
+              margin: auto;
+              width: 278mm;
+              max-width: 278mm;
+              height: 190mm;
+              max-height: 190mm;
+              box-sizing: border-box;
+              page-break-inside: avoid;
+            }
+            .certificado-moldura {
+              border: 1mm dashed #2e6b3e;
+              border-radius: 3px;
+              padding: 7mm 11mm 6mm;
+              background: #ffffff;
+              text-align: center;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              height: 100%;
+              box-sizing: border-box;
+            }
+            .certificado-cabecalho {
+              margin-bottom: 8px;
+              border-bottom: 1px solid #e2e8f0;
+              padding-bottom: 8px;
+            }
+            .certificado-logo {
+              height: 44px;
+              width: auto;
+              object-fit: contain;
+              margin-bottom: 3px;
+              display: inline-block;
+            }
+            .certificado-instituicao {
+              font-size: 10.5px;
+              font-weight: 700;
+              color: #2e6b3e;
+              letter-spacing: 0.8px;
+              text-transform: uppercase;
+              margin-bottom: 3px;
+            }
+            .certificado-titulo {
+              font-size: 20px;
+              font-weight: 800;
+              color: #0f172a;
+              letter-spacing: 1.2px;
+              text-transform: uppercase;
+            }
+            .certificado-corpo {
+              padding: 10px 0;
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+            }
+            .certificado-texto-declaracao {
+              font-size: 14px;
+              color: #334155;
+              line-height: 1.55;
+              margin: 0 auto;
+              max-width: 740px;
+            }
+            .destaque-aluno {
+              color: #0f172a;
+              font-size: 16px;
+              font-weight: 700;
+            }
+            .certificado-nome-curso {
+              font-size: 16px;
+              font-weight: 700;
+              color: #1e522d;
+              margin: 10px auto;
+              padding: 7px 20px;
+              background: #f0fdf4;
+              border-radius: 6px;
+              display: inline-block;
+              border: 1px solid #bbf7d0;
+              line-height: 1.35;
+            }
+            .certificado-detalhes-texto {
+              font-size: 13.5px;
+              color: #64748b;
+              margin: 4px 0 0;
+            }
+            .certificado-rodape {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              margin-top: 14px;
+              padding-top: 12px;
+              border-top: 1px solid #e2e8f0;
+              gap: 16px;
+            }
+            .certificado-assinatura-bloco {
+              text-align: center;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              min-width: 175px;
+            }
+            .linha-assinatura {
+              width: 175px;
+              height: 1.5px;
+              background: #0f172a;
+              margin-bottom: 5px;
+            }
+            .cargo-assinatura {
+              font-size: 11px;
+              font-weight: 700;
+              color: #0f172a;
+              letter-spacing: 0.3px;
+              text-transform: uppercase;
+            }
+            .inst-assinatura {
+              font-size: 10px;
+              font-weight: 600;
+              color: #475569;
+              margin-top: 1px;
+            }
+            .certificado-selo-bloco {
+              text-align: right;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 6px 14px;
+              border-radius: 6px;
+              white-space: nowrap;
+              min-width: 155px;
+            }
+            .selo-icone {
+              font-size: 16px;
+              margin-bottom: 2px;
+            }
+            .selo-texto {
+              font-size: 9px;
+              font-weight: 700;
+              color: #2e6b3e;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .selo-codigo {
+              font-size: 11.5px;
+              font-weight: 700;
+              color: #0f172a;
+              font-family: monospace;
+              letter-spacing: 0.5px;
+              margin-top: 2px;
+            }
+          </style>
+        </head>
+        <body>
+          ${cloneCert.outerHTML}
+        </body>
+        </html>
+      `);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (errIframe) {
+          console.warn("Falha no print por iframe, usando modo padrão:", errIframe);
+          dispararImpressaoDireta();
+        }
+      }, 250);
+    } catch (e) {
+      console.warn("Erro ao instanciar iframe de impressão:", e);
+      dispararImpressaoDireta();
+    }
+  }
+
+  function dispararImpressaoDireta() {
     if (modalCertificados) {
       modalCertificados.hidden = false;
       modalCertificados.removeAttribute("hidden");
@@ -875,9 +1238,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener("afterprint", limparModoImpressao, { once: true });
 
-    // Pequeno atraso para garantir que a estilização de impressão seja aplicada
     setTimeout(() => {
-      window.print();
+      try {
+        window.print();
+      } catch (errPrint) {
+        console.error("Erro na chamada window.print():", errPrint);
+      }
       setTimeout(limparModoImpressao, 2500);
     }, 150);
   }
@@ -885,7 +1251,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function exportarParaLinkedIn() {
     const nomeCurso = (certNomeCurso?.textContent || dadosAlunoCache?.curso?.nome || "Treinamento Oficial Apassul").trim();
     const codigoCert = (certCodigoAutenticidade?.textContent || dadosAlunoCache?.inscricao?.codigo_autenticidade || "APS-2026-CERT").trim();
-    const urlCertificado = `${window.location.origin}/area-do-inscrito.html`;
+    
+    // URL pública oficial onde o LinkedIn e qualquer terceiro pode verificar e visualizar o certificado sem login:
+    const urlCertificado = `${window.location.origin}/validar-certificado.html?codigo=${encodeURIComponent(codigoCert)}`;
     const dataAtual = new Date();
     const anoAtual = dataAtual.getFullYear();
     const mesAtual = dataAtual.getMonth() + 1;
@@ -894,8 +1262,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // - URL da empresa: https://www.linkedin.com/company/apassul
     // - ID numérico da organização no LinkedIn: 65313822
     // - Nome da empresa na busca do LinkedIn: APASSUL
-    // Com organizationId e organizationName preenchidos, o LinkedIn vincula automaticamente
-    // a empresa APASSUL e exibe o logotipo oficial no certificado sem necessitar de revisão manual.
     const params = new URLSearchParams({
       startTask: "CERTIFICATION_NAME",
       name: nomeCurso,
@@ -911,17 +1277,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.open(urlLinkedIn, "_blank", "noopener,noreferrer");
   }
 
-  function postarNoFeedLinkedIn() {
-    const nomeCurso = (certNomeCurso?.textContent || dadosAlunoCache?.curso?.nome || "Treinamento Oficial Apassul").trim();
-    const codigoCert = (certCodigoAutenticidade?.textContent || dadosAlunoCache?.inscricao?.codigo_autenticidade || "APS-2026-CERT").trim();
-    
-    // Post oficial pronto para publicação no feed do LinkedIn mencionando a APASSUL
-    const textoPost = `🎓 Concluí com sucesso o curso "${nomeCurso}" realizado pela APASSUL (https://www.linkedin.com/company/apassul)! 🌾✨\n\n📜 Registro de Autenticidade Digital: ${codigoCert}\n\n#APASSUL #Sementes #Agronegocio #CapacitacaoProfissional #Certificado`;
-
-    const urlFeed = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textoPost)}`;
-    window.open(urlFeed, "_blank", "noopener,noreferrer");
-  }
-
   if (btnBaixarPDFCertificado) {
     btnBaixarPDFCertificado.addEventListener("click", baixarCertificadoPDF);
   }
@@ -934,8 +1289,13 @@ document.addEventListener("DOMContentLoaded", () => {
     btnAdicionarLinkedIn.addEventListener("click", exportarParaLinkedIn);
   }
 
-  if (btnPostarFeedLinkedIn) {
-    btnPostarFeedLinkedIn.addEventListener("click", postarNoFeedLinkedIn);
+  const btnVisualizarLinkPublico = document.getElementById("btnVisualizarLinkPublico");
+  if (btnVisualizarLinkPublico) {
+    btnVisualizarLinkPublico.addEventListener("click", () => {
+      const codigoCert = (certCodigoAutenticidade?.textContent || dadosAlunoCache?.inscricao?.codigo_autenticidade || "APS-2026-CERT").trim();
+      const urlCert = `/validar-certificado.html?codigo=${encodeURIComponent(codigoCert)}`;
+      window.open(urlCert, "_blank");
+    });
   }
 
   if (btnAbrirTrocaSenha) {

@@ -88,11 +88,12 @@ adicionarColuna("cursos", "preco", "REAL DEFAULT 3200.00");
 adicionarColuna("cursos", "descricao", "TEXT");
 adicionarColuna("cursos", "carga_horaria", "TEXT");
 adicionarColuna("cursos", "data_evento", "TEXT");
+adicionarColuna("cursos", "data_fim_curso", "TEXT");
 adicionarColuna("cursos", "requisitos", "TEXT");
 
 const upsertCurso = db.prepare(`
-  INSERT INTO cursos (id, nome, vagas, preco, descricao, carga_horaria, data_evento, requisitos)
-  VALUES (@id, @nome, @vagas, @preco, @descricao, @carga_horaria, @data_evento, @requisitos)
+  INSERT INTO cursos (id, nome, vagas, preco, descricao, carga_horaria, data_evento, data_fim_curso, requisitos)
+  VALUES (@id, @nome, @vagas, @preco, @descricao, @carga_horaria, @data_evento, @data_fim_curso, @requisitos)
   ON CONFLICT(id) DO UPDATE SET
     nome = excluded.nome,
     vagas = excluded.vagas,
@@ -100,6 +101,7 @@ const upsertCurso = db.prepare(`
     descricao = excluded.descricao,
     carga_horaria = excluded.carga_horaria,
     data_evento = excluded.data_evento,
+    data_fim_curso = excluded.data_fim_curso,
     requisitos = excluded.requisitos
 `);
 
@@ -112,6 +114,7 @@ const cursos = [
     descricao: "Encontro voltado a produtores de mudas de videira, com palestras técnicas e troca de experiências.<br><br><strong>💰 Investimento:</strong> R$ 3.200,00",
     carga_horaria: "8 horas",
     data_evento: "15/10/2026",
+    data_fim_curso: "2026-10-15",
     requisitos: "Ser produtor ou colaborador de viveiro associado à Apassul.",
   },
   {
@@ -122,6 +125,7 @@ const cursos = [
     descricao: "Curso sobre a legislação brasileira de produção e comercialização de sementes e mudas.<br><br><strong>💰 Investimento:</strong> R$ 3.200,00",
     carga_horaria: "16 horas",
     data_evento: "20/10/2026",
+    data_fim_curso: "2026-10-20",
     requisitos: "Nenhum pré-requisito.",
   },
   {
@@ -132,6 +136,7 @@ const cursos = [
     descricao: "Apresenta o Programa de Rastreabilidade e Valorização da Origem da Aveia Granífera.<br><br><strong>💰 Investimento:</strong> R$ 3.200,00",
     carga_horaria: "4 horas",
     data_evento: "05/11/2026",
+    data_fim_curso: "2026-11-05",
     requisitos: "Nenhum pré-requisito.",
   },
   {
@@ -178,6 +183,7 @@ Transição do papel de melhor executor para o de criador de condições de perf
 arthurmachado@apassul.com.br | (55) 9.9720-6633`,
     carga_horaria: "6 horas (4 encontros de 1h30)",
     data_evento: "17/11, 15/12, 16/02 e 16/03 - 16h30 às 18h",
+    data_fim_curso: "2027-03-16",
     requisitos: "Nenhum pré-requisito específico.",
   },
 ];

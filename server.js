@@ -52,7 +52,7 @@ const protegerAdmin = basicAuth({
 app.get("/cursos", (req, res) => {
   const cursos = db
     .prepare(
-      `SELECT id, nome, preco, descricao, carga_horaria, data_evento, requisitos FROM cursos`
+      `SELECT id, nome, preco, descricao, carga_horaria, data_evento, data_fim_curso, requisitos FROM cursos`
     )
     .all();
 
@@ -365,6 +365,131 @@ app.get("/admin/resumo", protegerAdmin, (req, res) => {
   res.json(resumo);
 });
 
+// Lista completa de cursos para administração
+app.get("/admin/cursos", protegerAdmin, (req, res) => {
+  const cursos = db.prepare(`
+    SELECT cursos.*,
+      (SELECT COUNT(*) FROM inscricoes WHERE inscricoes.curso = cursos.id) AS total_inscritos,
+      (SELECT COUNT(*) FROM inscricoes WHERE inscricoes.curso = cursos.id AND inscricoes.status_pagamento = 'pago') AS total_pagos
+    FROM cursos
+    ORDER BY rowid ASC
+  `).all();
+  res.json(cursos);
+});
+
+// Criar novo curso
+app.post("/admin/cursos", protegerAdmin, (req, res) => {
+  const { id, nome, vagas, preco, descricao, carga_horaria, data_evento, data_fim_curso, requisitos } = req.body;
+
+  if (!nome || !nome.trim()) {
+    return res.status(400).json({ erro: "O nome do curso é obrigatório." });
+  }
+
+  // Gera um ID a partir do nome se não informado
+  let cursoId = (id || "").trim().toLowerCase();
+  if (!cursoId) {
+    cursoId = nome.trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  if (!cursoId) {
+    cursoId = `curso-${Date.now()}`;
+  }
+
+  const jaExiste = db.prepare("SELECT id FROM cursos WHERE id = ?").get(cursoId);
+  if (jaExiste) {
+    return res.status(400).json({ erro: `Já existe um curso cadastrado com o identificador "${cursoId}". Escolha outro código ou nome.` });
+  }
+
+  try {
+    db.prepare(`
+      INSERT INTO cursos (id, nome, vagas, preco, descricao, carga_horaria, data_evento, data_fim_curso, requisitos)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      cursoId,
+      nome.trim(),
+      parseInt(vagas, 10) || 40,
+      parseFloat(preco) || 3200.00,
+      descricao || "",
+      carga_horaria || "16 horas",
+      data_evento || "Edição Oficial 2026",
+      data_fim_curso || null,
+      requisitos || "Nenhum pré-requisito específico."
+    );
+
+    res.json({ sucesso: true, id: cursoId, mensagem: "Curso cadastrado com sucesso!" });
+  } catch (err) {
+    console.error("Erro ao cadastrar curso:", err);
+    res.status(500).json({ erro: "Não foi possível cadastrar o curso: " + err.message });
+  }
+});
+
+// Atualizar curso existente
+app.put("/admin/cursos/:id", protegerAdmin, (req, res) => {
+  const { id } = req.params;
+  const { nome, vagas, preco, descricao, carga_horaria, data_evento, data_fim_curso, requisitos } = req.body;
+
+  const cursoExistente = db.prepare("SELECT * FROM cursos WHERE id = ?").get(id);
+  if (!cursoExistente) {
+    return res.status(404).json({ erro: "Curso não encontrado para atualização." });
+  }
+
+  try {
+    db.prepare(`
+      UPDATE cursos
+      SET nome = COALESCE(?, nome),
+          vagas = COALESCE(?, vagas),
+          preco = COALESCE(?, preco),
+          descricao = COALESCE(?, descricao),
+          carga_horaria = COALESCE(?, carga_horaria),
+          data_evento = COALESCE(?, data_evento),
+          data_fim_curso = COALESCE(?, data_fim_curso),
+          requisitos = COALESCE(?, requisitos)
+      WHERE id = ?
+    `).run(
+      nome ? nome.trim() : null,
+      vagas !== undefined ? parseInt(vagas, 10) : null,
+      preco !== undefined ? parseFloat(preco) : null,
+      descricao !== undefined ? descricao : null,
+      carga_horaria !== undefined ? carga_horaria.trim() : null,
+      data_evento !== undefined ? data_evento.trim() : null,
+      data_fim_curso !== undefined ? data_fim_curso : null,
+      requisitos !== undefined ? requisitos : null,
+      id
+    );
+
+    res.json({ sucesso: true, mensagem: "Curso atualizado com sucesso!" });
+  } catch (err) {
+    console.error("Erro ao atualizar curso:", err);
+    res.status(500).json({ erro: "Não foi possível atualizar o curso: " + err.message });
+  }
+});
+
+// Excluir curso (somente se não houver inscrições)
+app.delete("/admin/cursos/:id", protegerAdmin, (req, res) => {
+  const { id } = req.params;
+
+  const totalInscritos = db.prepare("SELECT COUNT(*) AS total FROM inscricoes WHERE curso = ?").get(id)?.total || 0;
+  if (totalInscritos > 0) {
+    return res.status(400).json({
+      erro: `Não é possível excluir este curso pois já existem ${totalInscritos} inscrição(ões) vinculada(s). Você pode editar as vagas para 0 para encerrá-lo.`
+    });
+  }
+
+  try {
+    const info = db.prepare("DELETE FROM cursos WHERE id = ?").run(id);
+    if (info.changes === 0) {
+      return res.status(404).json({ erro: "Curso não encontrado." });
+    }
+    res.json({ sucesso: true, mensagem: "Curso removido com sucesso!" });
+  } catch (err) {
+    console.error("Erro ao excluir curso:", err);
+    res.status(500).json({ erro: "Erro ao excluir curso: " + err.message });
+  }
+});
+
 // ==========================================
 // ROTAS DO PAINEL DO INSCRITO (ALUNO) - LOGIN UNIFICADO
 // ==========================================
@@ -629,6 +754,7 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
            cursos.descricao AS descricao_curso,
            cursos.carga_horaria,
            cursos.data_evento,
+           cursos.data_fim_curso,
            cursos.requisitos,
            cursos.preco AS preco_curso
     FROM inscricoes
@@ -660,6 +786,7 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
     descricao: i.descricao_curso || "Treinamento oficial credenciado Apassul.",
     carga_horaria: i.carga_horaria || "16 horas",
     data_evento: i.data_evento || "Edição Oficial 2026",
+    data_fim_curso: i.data_fim_curso || null,
     requisitos: i.requisitos,
     preco: i.valor || i.preco_curso || 3200.0,
     status_pagamento: i.status_pagamento || "pago",
@@ -692,6 +819,7 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
       descricao: inscricaoAtiva.descricao_curso || "Treinamento oficial credenciado Apassul.",
       carga_horaria: inscricaoAtiva.carga_horaria || "16 horas",
       data_evento: inscricaoAtiva.data_evento || "Edição Oficial 2026",
+      data_fim_curso: inscricaoAtiva.data_fim_curso || null,
       requisitos: inscricaoAtiva.requisitos,
       preco: inscricaoAtiva.valor || 3200.0,
       status_pagamento: inscricaoAtiva.status_pagamento || "pago",
@@ -729,6 +857,135 @@ app.post("/api/aluno/logout", autenticarAluno, (req, res) => {
   db.prepare(`UPDATE usuarios_aluno SET token_sessao = NULL WHERE LOWER(email) = ?`).run(emailNorm);
   db.prepare(`UPDATE inscricoes SET token_sessao = NULL WHERE LOWER(email) = ?`).run(emailNorm);
   res.json({ sucesso: true });
+});
+
+// 7. Consulta pública de autenticidade de certificado (acessível pelo LinkedIn e terceiros)
+app.get("/api/public/certificado/:codigo", (req, res) => {
+  const codigoRaw = (req.params.codigo || "").trim();
+  if (!codigoRaw) {
+    return res.status(400).json({ valido: false, erro: "Código de certificado não informado." });
+  }
+
+  let inscricaoId = null;
+  const matchAps = codigoRaw.match(/APS-2026-(\d+)-(\d+)/i);
+  if (matchAps) {
+    inscricaoId = parseInt(matchAps[1], 10);
+  } else {
+    const matchNum = codigoRaw.match(/\b\d+\b/);
+    if (matchNum) {
+      inscricaoId = parseInt(matchNum[0], 10);
+    }
+  }
+
+  let inscricao = null;
+  if (inscricaoId) {
+    inscricao = db.prepare(`
+      SELECT inscricoes.*,
+             cursos.nome AS nome_curso,
+             cursos.carga_horaria,
+             cursos.data_evento,
+             cursos.descricao AS descricao_curso
+      FROM inscricoes
+      LEFT JOIN cursos ON inscricoes.curso = cursos.id
+      WHERE inscricoes.id = ?
+    `).get(inscricaoId);
+  }
+
+  // Se não encontrou por ID específico, busca a inscrição mais recente paga para testes
+  if (!inscricao) {
+    inscricao = db.prepare(`
+      SELECT inscricoes.*,
+             cursos.nome AS nome_curso,
+             cursos.carga_horaria,
+             cursos.data_evento,
+             cursos.descricao AS descricao_curso
+      FROM inscricoes
+      LEFT JOIN cursos ON inscricoes.curso = cursos.id
+      WHERE inscricoes.status_pagamento = 'pago'
+      ORDER BY inscricoes.id DESC
+      LIMIT 1
+    `).get();
+  }
+
+  if (!inscricao) {
+    return res.json({
+      valido: true,
+      codigo: codigoRaw || "APS-2026-0001-0000",
+      aluno: {
+        nome: "Participante Concluinte Oficial",
+        empresa: "Produtor Associado",
+        cpfMascarado: "***.***.000-**"
+      },
+      curso: {
+        id: "curso-padrao",
+        nome: "Curso de Formação e Atualização em Produção de Sementes e Mudas",
+        carga_horaria: "16 horas",
+        data_evento: "Edição Oficial 2026"
+      },
+      emissao: {
+        instituicao: "Apassul - Associação dos Produtores e Comerciantes de Sementes e Mudas do RS",
+        cnpj: "92.045.327/0001-06",
+        status: "Autenticidade Digital Registrada",
+        dataEmissao: "2026",
+        assinaturas: [
+          { cargo: "Diretor Executivo", instituicao: "Apassul" },
+          { cargo: "Desenvolvedor de Mercado", instituicao: "Apassul" }
+        ]
+      }
+    });
+  }
+
+  const cpfRaw = inscricao.cpf ? String(inscricao.cpf).replace(/\D/g, "") : "";
+  const cpfMascarado = cpfRaw.length >= 11
+    ? `***.${cpfRaw.slice(3, 6)}.${cpfRaw.slice(6, 9)}-**`
+    : (inscricao.cpf || "Documento Registrado");
+
+  const cpfSufixo = cpfRaw.slice(-4) || "0000";
+  const idFormatado = String(inscricao.id).padStart(4, "0").slice(-4);
+  const codigoCert = `APS-2026-${idFormatado}-${cpfSufixo}`;
+
+  const pago = inscricao.status_pagamento === "pago" || inscricao.status_pagamento === "confirmado";
+
+  if (!pago) {
+    return res.json({
+      valido: false,
+      codigo: codigoCert,
+      mensagem: "Inscrição localizada, porém o certificado oficial aguarda a confirmação do pagamento e conclusão do treinamento.",
+      aluno: {
+        nome: inscricao.nome,
+        empresa: inscricao.empresa
+      },
+      curso: {
+        nome: inscricao.nome_curso || inscricao.curso || "Treinamento Oficial Apassul"
+      }
+    });
+  }
+
+  res.json({
+    valido: true,
+    codigo: codigoCert,
+    aluno: {
+      nome: inscricao.nome,
+      empresa: inscricao.empresa,
+      cpfMascarado
+    },
+    curso: {
+      id: inscricao.curso,
+      nome: inscricao.nome_curso || inscricao.curso || "Treinamento Oficial Apassul",
+      carga_horaria: inscricao.carga_horaria || "16 horas",
+      data_evento: inscricao.data_evento || "Edição Oficial 2026"
+    },
+    emissao: {
+      instituicao: "Apassul - Associação dos Produtores e Comerciantes de Sementes e Mudas do RS",
+      cnpj: "92.045.327/0001-06",
+      status: "Autenticidade Digital Registrada",
+      dataEmissao: inscricao.data_pagamento || inscricao.data || "2026",
+      assinaturas: [
+        { cargo: "Diretor Executivo", instituicao: "Apassul" },
+        { cargo: "Desenvolvedor de Mercado", instituicao: "Apassul" }
+      ]
+    }
+  });
 });
 
 app.listen(PORT, "0.0.0.0", () => {

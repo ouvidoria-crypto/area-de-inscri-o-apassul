@@ -1,7 +1,150 @@
 const resumoCorpo = document.querySelector("#tabelaResumo tbody");
 const inscritosCorpo = document.querySelector("#tabelaInscritos tbody");
+const corpoTabelaCursos = document.getElementById("corpoTabelaCursos");
 const mensagem = document.getElementById("mensagemAdmin");
 const btnExportarCSV = document.getElementById("btnExportarCSV");
+
+// Elementos do formulário de curso
+const formCursoCard = document.getElementById("formCursoCard");
+const formCurso = document.getElementById("formCurso");
+const formCursoTitulo = document.getElementById("formCursoTitulo");
+const cursoModo = document.getElementById("cursoModo");
+const cursoId = document.getElementById("cursoId");
+const cursoNome = document.getElementById("cursoNome");
+const cursoCargaHoraria = document.getElementById("cursoCargaHoraria");
+const cursoDataEvento = document.getElementById("cursoDataEvento");
+const cursoDataFim = document.getElementById("cursoDataFim");
+const cursoVagas = document.getElementById("cursoVagas");
+const cursoPreco = document.getElementById("cursoPreco");
+const cursoDescricao = document.getElementById("cursoDescricao");
+const cursoRequisitos = document.getElementById("cursoRequisitos");
+
+let cursosCache = [];
+
+function abrirFormularioCurso(cursoParaEditar = null) {
+  if (cursoParaEditar) {
+    formCursoTitulo.textContent = "Editar Curso / Certificado Oficial";
+    cursoModo.value = "editar";
+    cursoId.value = cursoParaEditar.id;
+    cursoId.disabled = true;
+    cursoNome.value = cursoParaEditar.nome || "";
+    cursoCargaHoraria.value = cursoParaEditar.carga_horaria || "16 horas";
+    cursoDataEvento.value = cursoParaEditar.data_evento || "Edição Oficial 2026";
+    cursoDataFim.value = cursoParaEditar.data_fim_curso ? cursoParaEditar.data_fim_curso.slice(0, 10) : "";
+    cursoVagas.value = cursoParaEditar.vagas || 40;
+    cursoPreco.value = cursoParaEditar.preco || 3200.00;
+    cursoDescricao.value = cursoParaEditar.descricao || "";
+    cursoRequisitos.value = cursoParaEditar.requisitos || "";
+  } else {
+    formCursoTitulo.textContent = "Cadastrar Novo Curso e Certificado Oficial";
+    cursoModo.value = "criar";
+    formCurso.reset();
+    cursoId.disabled = false;
+    cursoId.value = "";
+    cursoCargaHoraria.value = "16 horas";
+    cursoDataEvento.value = "Edição Oficial 2026";
+    cursoDataFim.value = "";
+    cursoVagas.value = 40;
+    cursoPreco.value = 3200.00;
+  }
+  formCursoCard.classList.add("ativo");
+  cursoNome.focus();
+}
+
+function fecharFormularioCurso() {
+  formCursoCard.classList.remove("ativo");
+  formCurso.reset();
+}
+
+async function salvarCurso(e) {
+  e.preventDefault();
+
+  const modo = cursoModo.value;
+  const idAtual = cursoId.value.trim();
+  const dados = {
+    id: idAtual,
+    nome: cursoNome.value.trim(),
+    carga_horaria: cursoCargaHoraria.value.trim(),
+    data_evento: cursoDataEvento.value.trim(),
+    data_fim_curso: cursoDataFim.value ? cursoDataFim.value.trim() : null,
+    vagas: parseInt(cursoVagas.value, 10),
+    preco: parseFloat(cursoPreco.value),
+    descricao: cursoDescricao.value.trim(),
+    requisitos: cursoRequisitos.value.trim(),
+  };
+
+  const btnSalvar = document.getElementById("btnSalvarCurso");
+  const textoOriginal = btnSalvar.textContent;
+  btnSalvar.disabled = true;
+  btnSalvar.textContent = "Salvando...";
+
+  try {
+    const url = modo === "editar" ? `/admin/cursos/${encodeURIComponent(idAtual)}` : "/admin/cursos";
+    const method = modo === "editar" ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(dados),
+    });
+
+    const respostaJson = await res.json();
+
+    if (!res.ok) {
+      alert(respostaJson.erro || "Erro ao salvar curso.");
+      return;
+    }
+
+    fecharFormularioCurso();
+    mensagem.textContent = modo === "editar" 
+      ? `Curso "${dados.nome}" atualizado com sucesso!` 
+      : `Novo curso "${dados.nome}" cadastrado com sucesso! Certificados no modelo oficial prontos.`;
+    mensagem.className = "msg-sucesso";
+    setTimeout(() => { mensagem.textContent = ""; }, 4500);
+
+    carregarPainel();
+  } catch (err) {
+    console.error("Erro ao salvar curso:", err);
+    alert("Erro de conexão ao salvar o curso.");
+  } finally {
+    btnSalvar.disabled = false;
+    btnSalvar.textContent = textoOriginal;
+  }
+}
+
+async function excluirCurso(id, nome) {
+  if (!confirm(`Deseja realmente excluir o curso "${nome}"?\n\nEsta operação só é permitida se não houver inscrições vinculadas.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/admin/cursos/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    const dados = await res.json();
+    if (!res.ok) {
+      alert(dados.erro || "Não foi possível excluir o curso.");
+      return;
+    }
+
+    mensagem.textContent = `Curso "${nome}" removido com sucesso.`;
+    mensagem.className = "msg-sucesso";
+    setTimeout(() => { mensagem.textContent = ""; }, 4000);
+    carregarPainel();
+  } catch (err) {
+    console.error("Erro ao excluir curso:", err);
+    alert("Erro de conexão ao excluir o curso.");
+  }
+}
+
+// Expõe globalmente para botões inline
+window.abrirFormularioCurso = abrirFormularioCurso;
+window.fecharFormularioCurso = fecharFormularioCurso;
+window.salvarCurso = salvarCurso;
+window.excluirCurso = excluirCurso;
 
 // Traduz o código interno do método de pagamento para um texto legível
 const nomesPagamento = {
@@ -53,9 +196,10 @@ async function alterarStatus(id, novoStatus) {
 
 async function carregarPainel() {
   try {
-    const [respostaResumo, respostaInscritos] = await Promise.all([
+    const [respostaResumo, respostaInscritos, respostaCursos] = await Promise.all([
       fetch("/admin/resumo", { credentials: "include" }),
       fetch("/admin/inscricoes", { credentials: "include" }),
+      fetch("/admin/cursos", { credentials: "include" }),
     ]);
 
     if (!respostaResumo.ok || !respostaInscritos.ok) {
@@ -67,6 +211,91 @@ async function carregarPainel() {
     const resumo = await respostaResumo.json();
     const inscritos = await respostaInscritos.json();
     inscritosAtuais = inscritos;
+
+    let cursos = [];
+    if (respostaCursos.ok) {
+      cursos = await respostaCursos.json();
+      cursosCache = cursos;
+    }
+
+    // Renderiza Gerenciador de Cursos
+    if (corpoTabelaCursos) {
+      corpoTabelaCursos.innerHTML = "";
+      if (cursos.length === 0) {
+        corpoTabelaCursos.innerHTML = `<tr><td colspan="11" style="text-align: center; color: #64748b; padding: 18px;">Nenhum curso cadastrado ainda.</td></tr>`;
+      } else {
+        cursos.forEach((curso) => {
+          const restantes = Math.max(0, (curso.vagas || 0) - (curso.total_inscritos || 0));
+          let dataFimFormatada = "-";
+          let statusBadge = `<span class="badge-status pago">Liberado</span>`;
+
+          if (curso.data_fim_curso) {
+            try {
+              const partes = curso.data_fim_curso.split("-");
+              if (partes.length === 3) {
+                const ano = parseInt(partes[0], 10);
+                const mes = parseInt(partes[1], 10) - 1;
+                const dia = parseInt(partes[2], 10);
+                const dataFim = new Date(ano, mes, dia, 23, 59, 59, 999);
+                const agora = new Date();
+                dataFimFormatada = `${String(dia).padStart(2, "0")}/${String(mes + 1).padStart(2, "0")}/${ano}`;
+                if (agora < dataFim) {
+                  statusBadge = `<span class="badge-status pendente">Em Andamento</span>`;
+                } else {
+                  statusBadge = `<span class="badge-status pago">Concluído</span>`;
+                }
+              }
+            } catch (errData) {
+              dataFimFormatada = curso.data_fim_curso;
+            }
+          }
+
+          const linha = document.createElement("tr");
+          linha.innerHTML = `
+            <td><strong>${curso.nome}</strong></td>
+            <td>${curso.carga_horaria || "16 horas"}</td>
+            <td>${curso.data_evento || "Edição Oficial 2026"}</td>
+            <td>${dataFimFormatada}</td>
+            <td>${statusBadge}</td>
+            <td>${formatarMoeda(curso.preco || 3200)}</td>
+            <td>${curso.vagas}</td>
+            <td>${curso.total_inscritos || 0}</td>
+            <td><strong style="color: #2e6b3e;">${curso.total_pagos || 0}</strong></td>
+            <td>${restantes}</td>
+            <td style="white-space: nowrap;">
+              <button type="button" class="btn-acao-tabela btn-editar-curso" data-id="${curso.id}" title="Editar curso e modelo de certificado">
+                Editar
+              </button>
+              ${(curso.total_inscritos || 0) === 0 ? `
+                <button type="button" class="btn-acao-tabela btn-perigo btn-excluir-curso" data-id="${curso.id}" data-nome="${curso.nome}" title="Excluir curso">
+                  Excluir
+                </button>
+              ` : `
+                <span style="font-size: 11.5px; color: #94a3b8; font-weight: 500;">Inscritos vinculados</span>
+              `}
+            </td>
+          `;
+          corpoTabelaCursos.appendChild(linha);
+        });
+
+        // Eventos dos botões de edição e exclusão
+        corpoTabelaCursos.querySelectorAll(".btn-editar-curso").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const c = cursosCache.find((item) => item.id === id);
+            if (c) abrirFormularioCurso(c);
+          });
+        });
+
+        corpoTabelaCursos.querySelectorAll(".btn-excluir-curso").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            const nome = btn.dataset.nome;
+            excluirCurso(id, nome);
+          });
+        });
+      }
+    }
 
     resumoCorpo.innerHTML = "";
     resumo.forEach((curso) => {

@@ -966,9 +966,9 @@
     .certificado-visual-card {
       background: #ffffff;
       box-sizing: border-box;
-      border: 2px solid #2e6b3e;
+      border: 7px solid #2e6b3e;
       border-radius: 6px;
-      padding: 6px;
+      padding: 10px;
       box-shadow: 0 4px 20px rgba(46, 107, 62, 0.08);
       margin: 0 auto;
       width: 100%;
@@ -976,7 +976,6 @@
       min-height: 560px;
       aspect-ratio: 278 / 190;
       position: relative;
-      overflow: hidden;
     }
     .certificado-moldura {
       border: 1.5px dashed #2e6b3e;
@@ -1117,6 +1116,84 @@
       color: #0f172a;
       font-family: monospace;
       margin-top: 1px;
+    }
+
+    /* OVERLAY DE BLOQUEIO DE CURSO EM ANDAMENTO */
+    .overlay-bloqueio-certificado {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      text-align: center;
+      border-radius: 4px;
+      z-index: 50;
+      box-sizing: border-box;
+      animation: fadeInBloqueio 0.25s ease-out;
+    }
+
+    @keyframes fadeInBloqueio {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .overlay-bloqueio-cadeado {
+      font-size: 80px;
+      line-height: 1;
+      margin-bottom: 18px;
+      filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+      animation: flutuaCadeado 2.4s ease-in-out infinite alternate;
+    }
+
+    @keyframes flutuaCadeado {
+      from { transform: translateY(0) scale(1); }
+      to { transform: translateY(-6px) scale(1.04); }
+    }
+
+    .overlay-bloqueio-titulo {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      margin: 0 0 12px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .overlay-bloqueio-mensagem {
+      color: #f8fafc;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.6;
+      max-width: 580px;
+      margin: 0 auto 16px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 14px 22px;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .overlay-bloqueio-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
     }
 
     /* ==========================================================
@@ -1583,6 +1660,15 @@
                   📥 Baixar Apostila Oficial (PDF)
                 </button>
               </div>
+
+              <div style="border: 1px solid #bbf7d0; border-radius: 10px; padding: 20px; background: #f0fdf4;">
+                <div style="font-size: 12px; font-weight: 700; color: #166534; text-transform: uppercase; margin-bottom: 6px;">📜 Certificado de Conclusão</div>
+                <div style="font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Certificado Oficial com Registro Digital</div>
+                <p style="font-size: 13px; color: #475569; margin: 0 0 16px; line-height: 1.4;">Disponível para download em alta resolução (PDF A4) e validação pública de autenticidade.</p>
+                <button type="button" class="btn-aluno-acao" onclick="abrirModuloCertificados()">
+                  📜 Ver e Baixar Certificado (PDF) →
+                </button>
+              </div>
             </div>
 
             <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 14px 18px; border-radius: 4px; font-size: 13px; color: #334155;">
@@ -1860,42 +1946,41 @@
         </div>
       </div>
 
-      <!-- Seletor Dinâmico de Treinamento do Certificado (Suporta todos os cursos atuais e futuros) -->
-      <div id="seletorCursoCertificadoContainer" style="margin-top: 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 18px;">🎓</span>
-          <label for="selectCursoCertificado" style="font-size: 13.5px; font-weight: 700; color: #1e293b; margin: 0;">
-            Treinamento do Certificado:
-          </label>
-        </div>
-        <select id="selectCursoCertificado" style="flex: 1; min-width: 250px; max-width: 520px; padding: 7px 12px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 13.5px; font-weight: 600; color: #0f172a; background: #ffffff; outline: none; cursor: pointer;">
-          <!-- Populado automaticamente -->
-        </select>
-      </div>
-
-      <!-- Estado 1: Certificado Disponível (Pagamento Confirmado / Concluído) -->
-      <div id="blocoCertificadoDisponivel" style="margin-top: 14px; display: block;">
+      <!-- Estado 1: Certificado Visual Oficial (com bloqueio por overlay quando curso em andamento) -->
+      <div id="blocoCertificadoDisponivel" style="margin-top: 14px; display: block; position: relative;">
         <!-- Card de Certificado Visual com Medidas e Moldura Padrão A4 -->
         <div id="documentoCertificado" class="certificado-visual-card">
+          <!-- OVERLAY DE BLOQUEIO DE CURSO EM ANDAMENTO (Ativado dinamicamente quando a data de término não foi atingida) -->
+          <div id="overlayBloqueioCertificado" class="overlay-bloqueio-certificado" hidden style="display: none;">
+            <div class="overlay-bloqueio-cadeado">🔒</div>
+            <h4 class="overlay-bloqueio-titulo">Certificado Temporariamente Bloqueado</h4>
+            <div class="overlay-bloqueio-mensagem">
+              O certificado estará disponível somente após a conclusão do curso com no mínimo 90% de aproveitamento.
+            </div>
+            <div id="overlayBloqueioDataFim" class="overlay-bloqueio-badge">
+              ⏳ Curso em andamento
+            </div>
+          </div>
+
           <div class="certificado-moldura">
             <div class="certificado-cabecalho">
               <img src="logo-apassul.png" alt="Apassul" class="certificado-logo">
               <div class="certificado-instituicao">
-                ASSOCIAÇÃO DOS PRODUTORES E COMERCIANTES DE SEMENTES E MUDAS DO RS
+                Apassul &bull; Associação dos Produtores e Comerciantes de Sementes e Mudas do RS
               </div>
               <div class="certificado-titulo">CERTIFICADO DE CONCLUSÃO</div>
             </div>
 
             <div class="certificado-corpo">
               <p class="certificado-texto-declaracao">
-                Certificamos para os devidos fins que <strong id="certNomeAluno" class="destaque-aluno">Participante Concluinte</strong>,
+                Certificamos que <strong id="certNomeAluno" class="destaque-aluno">Participante Concluinte</strong>,
                 inscrito(a) sob o CPF nº <strong id="certCpfAluno">000.000.000-00</strong>,
-                concluiu com aproveitamento satisfatório o treinamento oficial:
+                concluiu com êxito e aproveitamento técnico o treinamento de capacitação:
               </p>
               <div id="certNomeCurso" class="certificado-nome-curso">Treinamento de Amostragem de Sementes</div>
               <p class="certificado-detalhes-texto">
-                Com carga horária total de <strong id="certCargaHoraria">16 horas</strong>,
-                realizado em <strong id="certDataCurso">Edição Oficial 2026</strong>.
+                Carga horária total de <strong id="certCargaHoraria">16 horas</strong> &bull;
+                Realizado em <strong id="certDataCurso">Edição Oficial 2026</strong>.
               </p>
             </div>
 
@@ -1929,14 +2014,6 @@
           </button>
           <button
             type="button"
-            id="btnImprimirCertificado"
-            class="btn-secundario-aluno"
-            title="Imprimir certificado oficial em folha A4 Paisagem"
-          >
-            🖨️ Imprimir
-          </button>
-          <button
-            type="button"
             id="btnAdicionarLinkedIn"
             class="btn-linkedin-aluno"
             title="Adicionar certificado oficial com o logotipo da APASSUL ao seu perfil do LinkedIn"
@@ -1948,14 +2025,11 @@
           </button>
           <button
             type="button"
-            id="btnPostarFeedLinkedIn"
-            class="btn-linkedin-feed"
-            title="Compartilhar post de conquista no feed do LinkedIn com menção oficial da APASSUL"
+            id="btnVisualizarLinkPublico"
+            class="btn-secundario-aluno"
+            title="Abrir página pública de validação oficial (o mesmo link que é aberto ao clicar em Exibir Credencial no LinkedIn)"
           >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-              <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-            </svg>
-            <span>Publicar no Feed</span>
+            🌐 Link Público
           </button>
           <button
             type="button"
