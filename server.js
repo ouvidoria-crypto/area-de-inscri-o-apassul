@@ -95,6 +95,24 @@ app.post("/inscricoes", async (req, res) => {
     return res.status(400).json({ erro: "Curso não encontrado." });
   }
 
+  const emailNorm = email.trim().toLowerCase();
+  const cpfNorm = (cpf || "").trim();
+
+  // Verifica se o participante já está cadastrado neste mesmo curso
+  const inscricaoExistenteNoMesmoCurso = db.prepare(`
+    SELECT id FROM inscricoes
+    WHERE curso = ? AND (
+      LOWER(email) = ? OR
+      (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
+    )
+  `).get(curso, emailNorm, cpfNorm);
+
+  if (inscricaoExistenteNoMesmoCurso) {
+    return res.status(400).json({
+      erro: `Você já está inscrito(a) no curso "${cursoInfo.nome}"! Acesse o Painel do Inscrito para conferir seus acessos, materiais e certificados.`,
+    });
+  }
+
   const { total } = db
     .prepare("SELECT COUNT(*) AS total FROM inscricoes WHERE curso = ?")
     .get(curso);
@@ -106,11 +124,23 @@ app.post("/inscricoes", async (req, res) => {
   const valorInscricao = cursoInfo.preco || 3200.00;
   const dataAtualIso = new Date().toISOString();
 
+  // Verifica se o usuário já possui cadastro unificado anterior (mesmo e-mail ou CPF)
+  let usuarioUnificado = db.prepare(`
+    SELECT * FROM usuarios_aluno WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
+  `).get(emailNorm, cpfNorm);
+
+  if (!usuarioUnificado) {
+    usuarioUnificado = db.prepare(`
+      SELECT * FROM inscricoes WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
+      ORDER BY id DESC LIMIT 1
+    `).get(emailNorm, cpfNorm);
+  }
+
   // [MODO DE TESTE: Inscrição confirmada automaticamente com status 'pago' ao preencher o formulário]
   const stmt = db.prepare(`
     INSERT INTO inscricoes
-      (nome, email, curso, data, empresa, telefone, cpf, metodo_pagamento, email_recibo, aceite_termos, vencimento_boleto, status_pagamento, valor, data_pagamento)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (nome, email, curso, data, empresa, telefone, cpf, metodo_pagamento, email_recibo, aceite_termos, vencimento_boleto, status_pagamento, valor, data_pagamento, senha_hash, senha_plana_inicial, troca_senha_obrigatoria)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const infoInsercao = stmt.run(
@@ -120,10 +150,35 @@ app.post("/inscricoes", async (req, res) => {
     metodoPagamento === "boleto" ? (vencimentoBoleto || null) : null,
     "pago", // CONFIRMADO IMEDIATAMENTE PARA FINS DE TESTE
     valorInscricao,
-    dataAtualIso
+    dataAtualIso,
+    usuarioUnificado?.senha_hash || null,
+    usuarioUnificado?.senha_plana_inicial || null,
+    usuarioUnificado?.troca_senha_obrigatoria != null ? usuarioUnificado.troca_senha_obrigatoria : 1
   );
 
   const inscricaoId = infoInsercao.lastInsertRowid;
+
+  // Atualiza ou cria o perfil unificado em usuarios_aluno
+  db.prepare(`
+    INSERT INTO usuarios_aluno (email, cpf, nome, empresa, telefone, senha_hash, senha_plana_inicial, troca_senha_obrigatoria, criado_em)
+    VALUES (@email, @cpf, @nome, @empresa, @telefone, @senha_hash, @senha_plana_inicial, @troca_senha_obrigatoria, @criado_em)
+    ON CONFLICT(email) DO UPDATE SET
+      cpf = COALESCE(excluded.cpf, usuarios_aluno.cpf),
+      nome = excluded.nome,
+      empresa = excluded.empresa,
+      telefone = excluded.telefone,
+      senha_hash = COALESCE(usuarios_aluno.senha_hash, excluded.senha_hash)
+  `).run({
+    email: emailNorm,
+    cpf: cpfNorm || null,
+    nome,
+    empresa: empresa || null,
+    telefone: telefone || null,
+    senha_hash: usuarioUnificado?.senha_hash || null,
+    senha_plana_inicial: usuarioUnificado?.senha_plana_inicial || null,
+    troca_senha_obrigatoria: usuarioUnificado?.troca_senha_obrigatoria != null ? usuarioUnificado.troca_senha_obrigatoria : 1,
+    criado_em: dataAtualIso,
+  });
 
   console.log(`[TESTE] Inscrição confirmada em "${cursoInfo.nome}" (ID ${inscricaoId}):`, nome, email);
 
@@ -146,7 +201,8 @@ app.post("/inscricoes", async (req, res) => {
     initPoint: null,
     modoSimulado: true,
     emailEnviado: infoAcesso?.emailEnviado || false,
-    senhaTemporaria: infoAcesso?.senhaGerada || null,
+    senhaTemporaria: infoAcesso?.jaPossuiConta ? null : (infoAcesso?.senhaGerada || null),
+    jaPossuiConta: !!infoAcesso?.jaPossuiConta,
   });
 });
 
@@ -166,7 +222,16 @@ app.get("/inscricoes/:id", (req, res) => {
     return res.status(404).json({ erro: "Inscrição não encontrada." });
   }
 
-  res.json(inscricao);
+  const emailNorm = inscricao.email.toLowerCase();
+  const usuario = db.prepare("SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?").get(emailNorm);
+  const totalInscricoes = db.prepare("SELECT COUNT(*) AS total FROM inscricoes WHERE LOWER(email) = ?").get(emailNorm)?.total || 1;
+  const jaPossuiConta = totalInscricoes > 1 || (usuario && usuario.senha_hash && usuario.troca_senha_obrigatoria === 0);
+
+  res.json({
+    ...inscricao,
+    jaPossuiConta: !!jaPossuiConta,
+    senha_plana_inicial: jaPossuiConta ? null : inscricao.senha_plana_inicial,
+  });
 });
 
 // Webhook do Mercado Pago para confirmação automática de pagamentos (Pix e Boleto)
@@ -301,7 +366,7 @@ app.get("/admin/resumo", protegerAdmin, (req, res) => {
 });
 
 // ==========================================
-// ROTAS DA ÁREA DO INSCRITO (ALUNO)
+// ROTAS DO PAINEL DO INSCRITO (ALUNO) - LOGIN UNIFICADO
 // ==========================================
 
 function extrairTokenAluno(req) {
@@ -318,80 +383,207 @@ function autenticarAluno(req, res, next) {
     return res.status(401).json({ erro: "Sessão não informada ou expirada. Faça login novamente." });
   }
 
-  const aluno = db.prepare(`
-    SELECT inscricoes.*, cursos.nome AS nome_curso, cursos.descricao AS descricao_curso,
-           cursos.carga_horaria, cursos.data_evento, cursos.requisitos
-    FROM inscricoes
-    LEFT JOIN cursos ON inscricoes.curso = cursos.id
-    WHERE inscricoes.token_sessao = ?
-  `).get(token);
+  // Busca o usuário unificado por token de sessão em usuarios_aluno
+  let usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE token_sessao = ?`).get(token);
 
-  if (!aluno) {
+  // Fallback para inscrições antigas que guardaram token_sessao em inscricoes
+  if (!usuario) {
+    const inscricao = db.prepare(`SELECT * FROM inscricoes WHERE token_sessao = ? ORDER BY id DESC LIMIT 1`).get(token);
+    if (inscricao) {
+      usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(inscricao.email.toLowerCase());
+      if (!usuario) {
+        usuario = inscricao;
+      }
+    }
+  }
+
+  if (!usuario) {
     return res.status(401).json({ erro: "Sessão inválida. Faça login novamente." });
   }
 
-  req.aluno = aluno;
+  req.usuarioAluno = usuario;
   next();
 }
 
-// Login na Área do Inscrito (Login é o e-mail, senha é a enviada ou redefinida)
-app.post("/api/aluno/login", async (req, res) => {
-  const { email, senha } = req.body;
+// 1. Endpoint para verificar na hora da inscrição se a pessoa já possui cadastro anterior
+app.post("/api/aluno/verificar-cadastro", (req, res) => {
+  const { email, cpf } = req.body || {};
+  const emailNorm = (email || "").trim().toLowerCase();
+  const cpfNorm = (cpf || "").trim();
+  const cpfLimpo = cpfNorm.replace(/\D/g, "");
 
-  if (!email || !senha) {
-    return res.status(400).json({ erro: "Por favor, preencha o e-mail e a senha." });
+  let usuario = null;
+
+  if (emailNorm) {
+    usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(emailNorm);
+    if (!usuario) {
+      usuario = db.prepare(`SELECT * FROM inscricoes WHERE LOWER(email) = ? ORDER BY id DESC LIMIT 1`).get(emailNorm);
+    }
   }
 
-  const emailNormalizado = email.trim().toLowerCase();
+  if (!usuario && cpfLimpo.length >= 10) {
+    usuario = db.prepare(`
+      SELECT * FROM usuarios_aluno
+      WHERE REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?
+    `).get(cpfLimpo);
 
-  // Busca inscrições deste e-mail (permite acesso em modo teste independente de pagamento)
-  let inscricao = db.prepare(`
-    SELECT * FROM inscricoes
-    WHERE LOWER(email) = ?
-    ORDER BY id DESC LIMIT 1
-  `).get(emailNormalizado);
+    if (!usuario) {
+      usuario = db.prepare(`
+        SELECT * FROM inscricoes
+        WHERE REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?
+        ORDER BY id DESC LIMIT 1
+      `).get(cpfLimpo);
+    }
+  }
 
-  if (!inscricao) {
+  if (!usuario) {
+    return res.json({ existe: false });
+  }
+
+  // Busca os cursos em que a pessoa já está cadastrada
+  const inscricoes = db.prepare(`
+    SELECT inscricoes.id AS inscricao_id, inscricoes.curso, cursos.nome AS nome_curso, inscricoes.status_pagamento
+    FROM inscricoes
+    LEFT JOIN cursos ON inscricoes.curso = cursos.id
+    WHERE LOWER(inscricoes.email) = ? OR (inscricoes.cpf IS NOT NULL AND inscricoes.cpf != '' AND inscricoes.cpf = ?)
+    ORDER BY inscricoes.id DESC
+  `).all(usuario.email.toLowerCase(), usuario.cpf || "");
+
+  res.json({
+    existe: true,
+    nome: usuario.nome,
+    email: usuario.email,
+    cpf: usuario.cpf,
+    empresa: usuario.empresa,
+    telefone: usuario.telefone,
+    cursosInscritos: inscricoes.map((i) => ({
+      inscricaoId: i.inscricao_id,
+      cursoId: i.curso,
+      nomeCurso: i.nome_curso || i.curso,
+      statusPagamento: i.status_pagamento,
+    })),
+  });
+});
+
+// 2. Login Unificado do Aluno (por e-mail ou CPF, usando a mesma senha)
+app.post("/api/aluno/login", async (req, res) => {
+  const { email, cpf, senha } = req.body;
+
+  if ((!email && !cpf) || !senha) {
+    return res.status(400).json({ erro: "Por favor, informe seu e-mail ou CPF e sua senha." });
+  }
+
+  const emailNorm = (email || "").trim().toLowerCase();
+  const cpfNorm = (cpf || "").trim();
+  const cpfLimpo = cpfNorm.replace(/\D/g, "");
+
+  let usuario = null;
+
+  if (emailNorm) {
+    usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(emailNorm);
+  }
+
+  if (!usuario && cpfLimpo.length >= 10) {
+    usuario = db.prepare(`
+      SELECT * FROM usuarios_aluno
+      WHERE REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?
+    `).get(cpfLimpo);
+  }
+
+  // Se ainda não estava em usuarios_aluno, busca na tabela de inscrições
+  if (!usuario) {
+    usuario = db.prepare(`
+      SELECT * FROM inscricoes
+      WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND (cpf = ? OR REPLACE(REPLACE(cpf, '.', ''), '-', '') = ?))
+      ORDER BY id DESC LIMIT 1
+    `).get(emailNorm, cpfNorm, cpfLimpo);
+  }
+
+  if (!usuario) {
     return res.status(404).json({
-      erro: "Nenhuma inscrição encontrada para este e-mail. Verifique a digitação.",
+      erro: "Nenhum cadastro encontrado para estes dados. Verifique a digitação ou faça sua primeira inscrição.",
     });
   }
 
-  // Se a senha ainda não havia sido gerada para esta inscrição antiga, gera agora automaticamente
-  if (!inscricao.senha_hash) {
+  // Se a senha ainda não havia sido gerada para este registro, gera agora automaticamente
+  if (!usuario.senha_hash) {
     try {
       const baseUrl = getBaseUrl(req);
-      await liberarAcessoInscrito(db, inscricao.id, baseUrl);
-      inscricao = db.prepare("SELECT * FROM inscricoes WHERE id = ?").get(inscricao.id);
+      const inscricaoRecente = db.prepare(`SELECT id FROM inscricoes WHERE LOWER(email) = ? ORDER BY id DESC LIMIT 1`).get(usuario.email.toLowerCase());
+      if (inscricaoRecente) {
+        await liberarAcessoInscrito(db, inscricaoRecente.id, baseUrl);
+        usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(usuario.email.toLowerCase()) ||
+                  db.prepare(`SELECT * FROM inscricoes WHERE id = ?`).get(inscricaoRecente.id);
+      }
     } catch (e) {
       console.error("Erro ao gerar credenciais na tentativa de login:", e.message);
     }
   }
 
-  const senhaValida = verificarSenha(senha.trim(), inscricao.senha_hash);
+  const senhaValida = verificarSenha(senha.trim(), usuario.senha_hash);
   if (!senhaValida) {
-    return res.status(401).json({ erro: "Senha incorreta. Verifique os caracteres recebidos no e-mail." });
+    return res.status(401).json({ erro: "Senha incorreta. Verifique os caracteres recebidos no e-mail ou redefina sua senha." });
   }
 
   const tokenSessao = gerarTokenSessao();
   const agora = new Date().toISOString();
 
+  // Atualiza token em usuarios_aluno
+  db.prepare(`
+    INSERT INTO usuarios_aluno (email, cpf, nome, empresa, telefone, senha_hash, senha_plana_inicial, troca_senha_obrigatoria, token_sessao, ultimo_login, criado_em)
+    VALUES (@email, @cpf, @nome, @empresa, @telefone, @senha_hash, @senha_plana_inicial, @troca_senha_obrigatoria, @token_sessao, @ultimo_login, @criado_em)
+    ON CONFLICT(email) DO UPDATE SET
+      token_sessao = excluded.token_sessao,
+      ultimo_login = excluded.ultimo_login
+  `).run({
+    email: usuario.email.toLowerCase(),
+    cpf: usuario.cpf || null,
+    nome: usuario.nome,
+    empresa: usuario.empresa || null,
+    telefone: usuario.telefone || null,
+    senha_hash: usuario.senha_hash,
+    senha_plana_inicial: usuario.senha_plana_inicial || null,
+    troca_senha_obrigatoria: usuario.troca_senha_obrigatoria != null ? usuario.troca_senha_obrigatoria : 1,
+    token_sessao: tokenSessao,
+    ultimo_login: agora,
+    criado_em: agora,
+  });
+
+  // Sincroniza também nas inscrições para consistência total
   db.prepare(`
     UPDATE inscricoes
     SET token_sessao = ?, ultimo_login = ?
-    WHERE id = ?
-  `).run(tokenSessao, agora, inscricao.id);
+    WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
+  `).run(tokenSessao, agora, usuario.email.toLowerCase(), usuario.cpf || "");
+
+  // Busca os cursos do usuário
+  const cursosInscritos = db.prepare(`
+    SELECT inscricoes.id AS inscricao_id, inscricoes.curso, cursos.nome AS nome_curso, inscricoes.status_pagamento
+    FROM inscricoes
+    LEFT JOIN cursos ON inscricoes.curso = cursos.id
+    WHERE LOWER(inscricoes.email) = ? OR (inscricoes.cpf IS NOT NULL AND inscricoes.cpf != '' AND inscricoes.cpf = ?)
+    ORDER BY inscricoes.id DESC
+  `).all(usuario.email.toLowerCase(), usuario.cpf || "");
 
   res.json({
     sucesso: true,
     token: tokenSessao,
-    nome: inscricao.nome,
-    email: inscricao.email,
-    trocaSenhaObrigatoria: Boolean(inscricao.troca_senha_obrigatoria),
+    nome: usuario.nome,
+    email: usuario.email,
+    cpf: usuario.cpf,
+    empresa: usuario.empresa,
+    telefone: usuario.telefone,
+    trocaSenhaObrigatoria: Boolean(usuario.troca_senha_obrigatoria),
+    cursosInscritos: cursosInscritos.map((i) => ({
+      inscricaoId: i.inscricao_id,
+      cursoId: i.curso,
+      nomeCurso: i.nome_curso || i.curso,
+      statusPagamento: i.status_pagamento,
+    })),
   });
 });
 
-// Troca obrigatória (ou voluntária) de senha
+// 3. Troca obrigatória (ou voluntária) de senha unificada para todos os cursos
 app.post("/api/aluno/trocar-senha", autenticarAluno, (req, res) => {
   const { novaSenha, confirmacaoSenha } = req.body;
 
@@ -404,62 +596,138 @@ app.post("/api/aluno/trocar-senha", autenticarAluno, (req, res) => {
   }
 
   const novoHash = hashSenha(novaSenha.trim());
+  const emailNorm = req.usuarioAluno.email.toLowerCase();
+
+  db.prepare(`
+    UPDATE usuarios_aluno
+    SET senha_hash = ?,
+        senha_plana_inicial = NULL,
+        troca_senha_obrigatoria = 0
+    WHERE LOWER(email) = ?
+  `).run(novoHash, emailNorm);
 
   db.prepare(`
     UPDATE inscricoes
     SET senha_hash = ?,
         senha_plana_inicial = NULL,
         troca_senha_obrigatoria = 0
-    WHERE id = ?
-  `).run(novoHash, req.aluno.id);
+    WHERE LOWER(email) = ?
+  `).run(novoHash, emailNorm);
 
-  res.json({ sucesso: true, mensagem: "Senha alterada com sucesso!" });
+  res.json({ sucesso: true, mensagem: "Senha alterada com sucesso em todos os seus acessos!" });
 });
 
-// Obter dados completos da inscrição e do curso do aluno logado
+// 4. Obter dados completos de todos os cursos do aluno unificado e detalhes do curso ativo
 app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
-  const a = req.aluno;
+  const u = req.usuarioAluno;
+  const cursoParam = req.query.cursoId || req.query.inscricaoId;
+
+  // Busca todas as inscrições deste aluno
+  const inscricoes = db.prepare(`
+    SELECT inscricoes.*,
+           cursos.nome AS nome_curso,
+           cursos.descricao AS descricao_curso,
+           cursos.carga_horaria,
+           cursos.data_evento,
+           cursos.requisitos,
+           cursos.preco AS preco_curso
+    FROM inscricoes
+    LEFT JOIN cursos ON inscricoes.curso = cursos.id
+    WHERE LOWER(inscricoes.email) = ? OR (inscricoes.cpf IS NOT NULL AND inscricoes.cpf != '' AND inscricoes.cpf = ?)
+    ORDER BY inscricoes.id DESC
+  `).all(u.email.toLowerCase(), u.cpf || "");
+
+  if (!inscricoes || inscricoes.length === 0) {
+    return res.status(404).json({ erro: "Nenhuma inscrição encontrada para este usuário." });
+  }
+
+  // Determina o curso ativo (selecionado pelo aluno ou o mais recente)
+  let inscricaoAtiva = null;
+  if (cursoParam) {
+    inscricaoAtiva = inscricoes.find(
+      (i) => String(i.id) === String(cursoParam) || i.curso === String(cursoParam)
+    );
+  }
+  if (!inscricaoAtiva) {
+    inscricaoAtiva = inscricoes[0];
+  }
+
+  const listaCursos = inscricoes.map((i) => ({
+    inscricao_id: i.id,
+    id: i.id,
+    curso_id: i.curso,
+    nome: i.nome_curso || i.curso || "Treinamento Apassul",
+    descricao: i.descricao_curso || "Treinamento oficial credenciado Apassul.",
+    carga_horaria: i.carga_horaria || "16 horas",
+    data_evento: i.data_evento || "Edição Oficial 2026",
+    requisitos: i.requisitos,
+    preco: i.valor || i.preco_curso || 3200.0,
+    status_pagamento: i.status_pagamento || "pago",
+    data_pagamento: i.data_pagamento,
+    metodo_pagamento: i.metodo_pagamento,
+    mp_init_point: i.mp_init_point,
+    vencimento_boleto: i.vencimento_boleto,
+    data_inscricao: i.data,
+  }));
+
   res.json({
-    id: a.id,
-    nome: a.nome,
-    email: a.email,
-    empresa: a.empresa,
-    telefone: a.telefone,
-    cpf: a.cpf,
-    status_pagamento: a.status_pagamento,
-    data_pagamento: a.data_pagamento,
-    mp_init_point: a.mp_init_point,
-    troca_senha_obrigatoria: Boolean(a.troca_senha_obrigatoria),
+    id: inscricaoAtiva.id,
+    nome: u.nome || inscricaoAtiva.nome,
+    email: u.email || inscricaoAtiva.email,
+    empresa: u.empresa || inscricaoAtiva.empresa,
+    telefone: u.telefone || inscricaoAtiva.telefone,
+    cpf: u.cpf || inscricaoAtiva.cpf,
+    status_pagamento: inscricaoAtiva.status_pagamento || "pago",
+    data_pagamento: inscricaoAtiva.data_pagamento,
+    mp_init_point: inscricaoAtiva.mp_init_point,
+    troca_senha_obrigatoria: Boolean(u.troca_senha_obrigatoria),
+    cursoAtivoId: inscricaoAtiva.curso,
+    inscricaoAtivaId: inscricaoAtiva.id,
+    cursos: listaCursos,
+    totalCursos: listaCursos.length,
     curso: {
-      id: a.curso,
-      nome: a.nome_curso || a.curso,
-      descricao: a.descricao_curso,
-      carga_horaria: a.carga_horaria,
-      data_evento: a.data_evento,
-      requisitos: a.requisitos,
-      preco: a.valor,
+      id: inscricaoAtiva.curso,
+      inscricao_id: inscricaoAtiva.id,
+      nome: inscricaoAtiva.nome_curso || inscricaoAtiva.curso || "Treinamento Apassul",
+      descricao: inscricaoAtiva.descricao_curso || "Treinamento oficial credenciado Apassul.",
+      carga_horaria: inscricaoAtiva.carga_horaria || "16 horas",
+      data_evento: inscricaoAtiva.data_evento || "Edição Oficial 2026",
+      requisitos: inscricaoAtiva.requisitos,
+      preco: inscricaoAtiva.valor || 3200.0,
+      status_pagamento: inscricaoAtiva.status_pagamento || "pago",
+      data_pagamento: inscricaoAtiva.data_pagamento,
     },
   });
 });
 
-// Rota para alternar o status de pagamento do próprio aluno logado durante os testes
+// 5. Rota para alternar o status de pagamento do curso selecionado durante testes
 app.post("/api/aluno/simular-pagamento", autenticarAluno, (req, res) => {
-  const { status } = req.body; // 'pago' ou 'pendente'
+  const { status, inscricaoId } = req.body;
   const novoStatus = status === "pago" ? "pago" : "pendente";
   const dataPag = novoStatus === "pago" ? new Date().toISOString() : null;
 
-  db.prepare(`
-    UPDATE inscricoes
-    SET status_pagamento = ?, data_pagamento = ?
-    WHERE id = ?
-  `).run(novoStatus, dataPag, req.aluno.id);
+  if (inscricaoId) {
+    db.prepare(`
+      UPDATE inscricoes
+      SET status_pagamento = ?, data_pagamento = ?
+      WHERE id = ?
+    `).run(novoStatus, dataPag, Number(inscricaoId));
+  } else {
+    db.prepare(`
+      UPDATE inscricoes
+      SET status_pagamento = ?, data_pagamento = ?
+      WHERE LOWER(email) = ?
+    `).run(novoStatus, dataPag, req.usuarioAluno.email.toLowerCase());
+  }
 
   res.json({ sucesso: true, status_pagamento: novoStatus, data_pagamento: dataPag });
 });
 
-// Logout da Área do Inscrito
+// 6. Logout do Painel do Inscrito
 app.post("/api/aluno/logout", autenticarAluno, (req, res) => {
-  db.prepare("UPDATE inscricoes SET token_sessao = NULL WHERE id = ?").run(req.aluno.id);
+  const emailNorm = req.usuarioAluno.email.toLowerCase();
+  db.prepare(`UPDATE usuarios_aluno SET token_sessao = NULL WHERE LOWER(email) = ?`).run(emailNorm);
+  db.prepare(`UPDATE inscricoes SET token_sessao = NULL WHERE LOWER(email) = ?`).run(emailNorm);
   res.json({ sucesso: true });
 });
 

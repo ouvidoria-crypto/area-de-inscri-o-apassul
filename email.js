@@ -33,6 +33,7 @@ async function enviarEmailAcessoInscrito({
   baseUrl,
   dataEvento,
   cargaHoraria,
+  jaPossuiConta = false,
 }) {
   const transport = obterTransporte();
   const linkAreaInscrito = `${baseUrl || "https://insc-apassul.onrender.com"}/area-do-inscrito.html`;
@@ -42,19 +43,23 @@ async function enviarEmailAcessoInscrito({
 
   if (!transport) {
     console.log("========================================================================");
-    console.log(`📧 [MODO DE TESTE - ENVIO DE DADOS DE ACESSO AO PARTICIPANTE]`);
+    console.log(`📧 [MODO DE TESTE - ENVIO DE CONFIRMAÇÃO AO PARTICIPANTE]`);
     console.log(` -> Destinatário: ${email}`);
-    console.log(` -> Login (E-mail): ${email}`);
-    console.log(` -> Senha de Acesso (alfanumérica): ${senhaTemporaria}`);
     console.log(` -> Curso: ${nomeCurso}`);
-    console.log(` -> Link da Área do Inscrito: ${linkAreaInscrito}`);
+    if (jaPossuiConta || !senhaTemporaria) {
+      console.log(` -> Cadastro Unificado: O participante já possui login e senha cadastrados`);
+    } else {
+      console.log(` -> Login (E-mail): ${email}`);
+      console.log(` -> Senha de Acesso (alfanumérica): ${senhaTemporaria}`);
+    }
+    console.log(` -> Link do Painel do Inscrito: ${linkAreaInscrito}`);
     console.log(` -> Status: Inscrição 100% Confirmada e Aprovada`);
     console.log(" (Para envio real para caixas externas, preencha SMTP_HOST, SMTP_USER e SMTP_PASS)");
     console.log("========================================================================");
     return {
       sucesso: true,
       motivo: "MODO_TESTE_SIMULADO",
-      senhaTemporaria,
+      senhaTemporaria: jaPossuiConta ? null : senhaTemporaria,
     };
   }
 
@@ -92,21 +97,32 @@ async function enviarEmailAcessoInscrito({
           <span class="badge-sucesso">✓ Inscrição Confirmada</span>
           <p>Olá, <strong>${nome}</strong>,</p>
           <p>Confirmamos com sucesso a sua inscrição no treinamento <strong>${nomeCurso}</strong>!</p>
-          <p>Seus dados de acesso à <strong>Área do Inscrito</strong> foram gerados pelo sistema:</p>
 
-          <div class="box-credenciais">
-            <div class="label">Seu Login (E-mail):</div>
-            <div class="valor-login">${email}</div>
+          ${
+            jaPossuiConta || !senhaTemporaria
+              ? `
+              <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 14px 18px; border-radius: 6px; margin: 20px 0; font-size: 14px; color: #166534;">
+                ✓ <strong>Treinamento Vinculado:</strong> Como você já possui cadastro unificado na Apassul, este curso foi vinculado à sua conta existente. Você pode entrar no Painel do Inscrito utilizando suas credenciais habituais.
+              </div>
+              `
+              : `
+              <p>Seus dados de acesso ao <strong>Painel do Inscrito</strong> foram gerados pelo sistema:</p>
 
-            <div class="label">Sua Senha de Acesso Provisória:</div>
-            <div class="valor-senha">${senhaTemporaria}</div>
-          </div>
+              <div class="box-credenciais">
+                <div class="label">Seu Login (E-mail):</div>
+                <div class="valor-login">${email}</div>
 
-          <div class="aviso-troca">
-            🔑 <strong>Primeiro Acesso:</strong> Ao acessar a Área do Inscrito pela primeira vez com sua senha provisória, o sistema solicitará que você cadastre sua nova senha pessoal definitiva.
-          </div>
+                <div class="label">Sua Senha de Acesso Provisória:</div>
+                <div class="valor-senha">${senhaTemporaria}</div>
+              </div>
 
-          <a href="${linkAreaInscrito}" class="btn-acesso">Acessar Área do Inscrito</a>
+              <div class="aviso-troca">
+                🔑 <strong>Primeiro Acesso:</strong> Ao acessar o Painel do Inscrito pela primeira vez com sua senha provisória, o sistema solicitará que você cadastre sua nova senha pessoal definitiva.
+              </div>
+              `
+          }
+
+          <a href="${linkAreaInscrito}" class="btn-acesso">Acessar Painel do Inscrito</a>
 
           <div class="detalhes-curso">
             <p><strong>Treinamento:</strong> ${nomeCurso}</p>
@@ -115,7 +131,7 @@ async function enviarEmailAcessoInscrito({
           </div>
 
           <p style="font-size: 13px; color: #64748b; margin-top: 24px;">
-            Na Área do Inscrito você poderá acompanhar o cronograma, emitir seu comprovante de inscrição e acessar as salas de transmissão ao vivo e materiais do curso assim que o pagamento for compensado.
+            No Painel do Inscrito você poderá acompanhar o cronograma, emitir seu comprovante de inscrição e acessar as salas de transmissão ao vivo e materiais do curso assim que o pagamento for compensado.
           </p>
         </div>
         <div class="footer">

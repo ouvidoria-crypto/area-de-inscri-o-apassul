@@ -37,7 +37,25 @@
       <br><strong id="emailParticipante" style="color: #2e6b3e; font-size: 16px;">o e-mail cadastrado</strong>.
     </p>
 
-    <!-- Caixa de Credenciais (Login e Senha) para Teste Imediato -->
+    <!-- Card de Convite Direto para quem já possui credenciais -->
+    <div id="blocoConvitePainel" style="display: none; margin: 22px 0; background: #ffffff; border: 2px solid #2e6b3e; border-radius: 12px; padding: 26px 20px; text-align: center; box-shadow: 0 4px 14px rgba(46,107,62,0.12);">
+      <div style="display: inline-block; background: #eaf5ec; color: #2e6b3e; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
+        ✓ Treinamento Vinculado com Sucesso
+      </div>
+      <h2 style="font-size: 20px; color: #1e293b; margin: 0 0 8px; font-weight: 700;">
+        Pronto para iniciar seus estudos!
+      </h2>
+      <p style="margin: 0 auto 20px; font-size: 15px; color: #475569; max-width: 480px; line-height: 1.55;">
+        Como você já possui credenciais de acesso, basta entrar com seu login e senha habituais no Painel do Inscrito para conferir cronogramas, materiais e transmissões.
+      </p>
+      <div>
+        <a id="btnConvitePainel" href="/area-do-inscrito.html" class="btn-mp-checkout" style="background-color: #2e6b3e; text-decoration: none; display: inline-block; padding: 14px 34px; font-weight: 700; font-size: 15.5px; border-radius: 8px; box-shadow: 0 4px 12px rgba(46,107,62,0.25);">
+          🎓 Entrar no Painel do Inscrito →
+        </a>
+      </div>
+    </div>
+
+    <!-- Caixa de Credenciais (Login e Senha) para Teste Imediato (Apenas para novos participantes) -->
     <div id="blocoCredenciaisTeste" style="margin: 22px 0; background: #ffffff; border: 2px solid #2e6b3e; border-radius: 10px; padding: 22px; text-align: center; box-shadow: 0 4px 12px rgba(46,107,62,0.1);">
       <div style="display: inline-block; background: #eaf5ec; color: #2e6b3e; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
         🧪 Modo de Teste: Acesso Liberado Imediatamente
@@ -62,12 +80,12 @@
 
       <div style="margin-top: 18px;">
         <a id="btnIrAreaAluno" href="/area-do-inscrito.html" class="btn-mp-checkout" style="background-color: #2e6b3e; text-decoration: none; display: inline-block; padding: 13px 30px; font-weight: 700; font-size: 15px; border-radius: 8px;">
-          🎓 Entrar na Área do Inscrito →
+          🎓 Entrar no Painel do Inscrito →
         </a>
       </div>
     </div>
 
-    <a class="botao-enviar pronto link-voltar" href="/">Voltar à área de inscrição</a>
+    <a class="botao-enviar pronto link-voltar" href="/">Voltar ao painel de inscrição</a>
   </section>
 
   <script>
@@ -75,20 +93,45 @@
     const id = params.get("id") || sessionStorage.getItem("inscricaoId");
     const emailGuardado = sessionStorage.getItem("emailParticipante");
     const senhaGuardada = sessionStorage.getItem("senhaTemporaria");
+    const tokenSalvo = sessionStorage.getItem("token_aluno_apassul") || localStorage.getItem("token_aluno_apassul");
+    const usuarioJaPossuiConta = sessionStorage.getItem("usuarioJaPossuiConta") === "true" || !!tokenSalvo;
 
+    const textoPrincipal = document.getElementById("textoPrincipal");
     const destinoEmail = document.getElementById("emailParticipante");
+    const blocoConvitePainel = document.getElementById("blocoConvitePainel");
+    const btnConvitePainel = document.getElementById("btnConvitePainel");
+    const blocoCredenciaisTeste = document.getElementById("blocoCredenciaisTeste");
     const credencialLogin = document.getElementById("credencialLogin");
     const credencialSenha = document.getElementById("credencialSenha");
     const btnCopiarSenha = document.getElementById("btnCopiarSenha");
     const btnIrAreaAluno = document.getElementById("btnIrAreaAluno");
 
-    if (emailGuardado) {
-      destinoEmail.textContent = emailGuardado;
-      credencialLogin.textContent = emailGuardado;
-      btnIrAreaAluno.href = `/area-do-inscrito.html?email=${encodeURIComponent(emailGuardado)}`;
+    function ativarModoUsuarioComCredencial(email) {
+      textoPrincipal.innerHTML = "Sua inscrição foi confirmada com sucesso! O novo treinamento foi vinculado diretamente à sua conta unificada da Apassul.";
+      if (blocoCredenciaisTeste) blocoCredenciaisTeste.style.display = "none";
+      if (blocoConvitePainel) blocoConvitePainel.style.display = "block";
+      if (btnConvitePainel && email) {
+        btnConvitePainel.href = `/area-do-inscrito.html?email=${encodeURIComponent(email)}`;
+      }
     }
-    if (senhaGuardada) {
-      credencialSenha.textContent = senhaGuardada;
+
+    function ativarModoNovoUsuario(email, senha) {
+      if (email) {
+        destinoEmail.textContent = email;
+        credencialLogin.textContent = email;
+        btnIrAreaAluno.href = `/area-do-inscrito.html?email=${encodeURIComponent(email)}`;
+      }
+      if (senha) {
+        credencialSenha.textContent = senha;
+      }
+      if (blocoCredenciaisTeste) blocoCredenciaisTeste.style.display = "block";
+      if (blocoConvitePainel) blocoConvitePainel.style.display = "none";
+    }
+
+    if (usuarioJaPossuiConta) {
+      ativarModoUsuarioComCredencial(emailGuardado);
+    } else {
+      ativarModoNovoUsuario(emailGuardado, senhaGuardada);
     }
 
     btnCopiarSenha.addEventListener("click", () => {
@@ -117,15 +160,6 @@
           box.hidden = false;
 
           document.getElementById("spanCurso").textContent = dados.nome_curso || "-";
-          if (dados.email) {
-            destinoEmail.textContent = dados.email;
-            credencialLogin.textContent = dados.email;
-            btnIrAreaAluno.href = `/area-do-inscrito.html?email=${encodeURIComponent(dados.email)}`;
-          }
-
-          if (dados.senha_plana_inicial) {
-            credencialSenha.textContent = dados.senha_plana_inicial;
-          }
 
           let metodoTexto = nomesMetodo[dados.metodo_pagamento] || dados.metodo_pagamento;
           document.getElementById("spanMetodo").textContent = metodoTexto;
@@ -133,6 +167,12 @@
           const badge = document.getElementById("badgeStatus");
           badge.textContent = "PAGO / LIBERADO (TESTE)";
           badge.className = "badge-status pago";
+
+          if (dados.jaPossuiConta || usuarioJaPossuiConta || !dados.senha_plana_inicial) {
+            ativarModoUsuarioComCredencial(dados.email || emailGuardado);
+          } else {
+            ativarModoNovoUsuario(dados.email, dados.senha_plana_inicial || senhaGuardada);
+          }
         })
         .catch(console.error);
     }

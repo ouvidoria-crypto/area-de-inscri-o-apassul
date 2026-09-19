@@ -46,30 +46,65 @@ async function liberarAcessoInscrito(db, inscricaoId, baseUrl) {
     throw new Error(`Inscrição ${inscricaoId} não encontrada.`);
   }
 
-  // Gera nova senha alfanumérica de 8 caracteres
-  let senhaPlana = inscricao.senha_plana_inicial;
-  if (!senhaPlana || !inscricao.senha_hash) {
-    senhaPlana = gerarSenhaAlfanumerica(8);
-    const senhaCripto = hashSenha(senhaPlana);
+  const emailNorm = inscricao.email.trim().toLowerCase();
+  let usuario = db.prepare("SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?").get(emailNorm);
 
-    db.prepare(`
-      UPDATE inscricoes
-      SET senha_hash = ?,
-          senha_plana_inicial = ?,
-          troca_senha_obrigatoria = 1
-      WHERE id = ?
-    `).run(senhaCripto, senhaPlana, inscricaoId);
+  const jaTinhaCadastroDefinido = !!(usuario?.senha_hash && (usuario.troca_senha_obrigatoria === 0 || usuario.senha_plana_inicial));
+  const totalInscricoesAnteriores = db.prepare("SELECT COUNT(*) AS total FROM inscricoes WHERE LOWER(email) = ? AND id != ?").get(emailNorm, inscricaoId)?.total || 0;
+  const jaPossuiConta = jaTinhaCadastroDefinido || totalInscricoesAnteriores > 0;
+
+  let senhaPlana = usuario?.senha_plana_inicial || inscricao.senha_plana_inicial;
+  let senhaHash = usuario?.senha_hash || inscricao.senha_hash;
+  let trocaObrigatoria = usuario?.troca_senha_obrigatoria != null ? usuario.troca_senha_obrigatoria : 1;
+
+  // Se o usuário ainda não possuir senha no sistema, gera a senha de 8 caracteres
+  if (!senhaHash) {
+    senhaPlana = gerarSenhaAlfanumerica(8);
+    senhaHash = hashSenha(senhaPlana);
+    trocaObrigatoria = 1;
   }
 
-  // Envia o e-mail com os dados de acesso
+  // Garante sincronia na tabela unificada usuarios_aluno
+  db.prepare(`
+    INSERT INTO usuarios_aluno (email, cpf, nome, empresa, telefone, senha_hash, senha_plana_inicial, troca_senha_obrigatoria, criado_em)
+    VALUES (@email, @cpf, @nome, @empresa, @telefone, @senha_hash, @senha_plana_inicial, @troca_senha_obrigatoria, @criado_em)
+    ON CONFLICT(email) DO UPDATE SET
+      cpf = COALESCE(excluded.cpf, usuarios_aluno.cpf),
+      nome = COALESCE(excluded.nome, usuarios_aluno.nome),
+      empresa = COALESCE(excluded.empresa, usuarios_aluno.empresa),
+      telefone = COALESCE(excluded.telefone, usuarios_aluno.telefone),
+      senha_hash = COALESCE(usuarios_aluno.senha_hash, excluded.senha_hash)
+  `).run({
+    email: emailNorm,
+    cpf: inscricao.cpf || null,
+    nome: inscricao.nome,
+    empresa: inscricao.empresa || null,
+    telefone: inscricao.telefone || null,
+    senha_hash: senhaHash,
+    senha_plana_inicial: senhaPlana,
+    troca_senha_obrigatoria: trocaObrigatoria,
+    criado_em: new Date().toISOString()
+  });
+
+  // Atualiza os dados desta inscrição específica
+  db.prepare(`
+    UPDATE inscricoes
+    SET senha_hash = ?,
+        senha_plana_inicial = ?,
+        troca_senha_obrigatoria = ?
+    WHERE id = ?
+  `).run(senhaHash, senhaPlana, trocaObrigatoria, inscricaoId);
+
+  // Envia o e-mail de confirmação / acesso
   const resultadoEmail = await enviarEmailAcessoInscrito({
     nome: inscricao.nome,
     email: inscricao.email,
     nomeCurso: inscricao.nome_curso || inscricao.curso,
-    senhaTemporaria: senhaPlana,
+    senhaTemporaria: jaPossuiConta ? null : senhaPlana,
     baseUrl,
     dataEvento: inscricao.data_evento,
     cargaHoraria: inscricao.carga_horaria,
+    jaPossuiConta,
   });
 
   if (resultadoEmail.sucesso) {
@@ -84,7 +119,8 @@ async function liberarAcessoInscrito(db, inscricaoId, baseUrl) {
   return {
     sucesso: true,
     email: inscricao.email,
-    senhaGerada: senhaPlana,
+    senhaGerada: jaPossuiConta ? null : senhaPlana,
+    jaPossuiConta,
     emailEnviado: resultadoEmail.sucesso,
     motivo: resultadoEmail.motivo || null,
   };

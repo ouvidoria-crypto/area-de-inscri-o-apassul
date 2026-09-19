@@ -38,6 +38,23 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS usuarios_aluno (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    cpf TEXT,
+    nome TEXT NOT NULL,
+    empresa TEXT,
+    telefone TEXT,
+    senha_hash TEXT,
+    senha_plana_inicial TEXT,
+    troca_senha_obrigatoria INTEGER DEFAULT 1,
+    token_sessao TEXT,
+    ultimo_login TEXT,
+    criado_em TEXT
+  )
+`);
+
 function adicionarColuna(tabela, coluna, tipo) {
   try {
     db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${tipo}`);

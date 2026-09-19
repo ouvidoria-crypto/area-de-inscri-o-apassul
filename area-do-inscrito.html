@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Área do Inscrito - Apassul</title>
+  <title>Painel do Inscrito - Apassul</title>
   <meta name="description" content="Portal oficial do aluno e participante dos treinamentos da Apassul">
-  <meta property="og:title" content="Área do Inscrito - Apassul">
+  <meta property="og:title" content="Painel do Inscrito - Apassul">
   <meta property="og:description" content="Portal oficial do aluno e participante dos treinamentos da Apassul">
+  <meta property="og:image" content="logo-apassul.png">
+  <meta property="og:site_name" content="APASSUL">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <style>
     /* ==========================================================
-       ESTILOS DO NOVO LAYOUT DA ÁREA DO INSCRITO (ESTILO YOUTUBE)
+       ESTILOS DO NOVO LAYOUT DO PAINEL DO INSCRITO (ESTILO YOUTUBE)
        ========================================================== */
     body.pagina-inscrito-app {
       margin: 0;
@@ -24,6 +26,121 @@
       color: #1e293b;
       font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       overflow-x: hidden;
+    }
+
+    /* MÓDULO DE SELEÇÃO DE CURSO NA BARRA SUPERIOR HORIZONTAL */
+    .modulo-curso-topbar[hidden],
+    body.usuario-deslogado #moduloCursoTopbar {
+      display: none !important;
+    }
+
+    body.usuario-logado #moduloCursoTopbar:not([hidden]) {
+      display: flex !important;
+    }
+
+    .modulo-curso-topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 14px;
+      transition: all 0.2s ease;
+      max-width: 520px;
+    }
+
+    .modulo-curso-topbar:hover {
+      border-color: #2e6b3e;
+      background: #f0fdf4;
+    }
+
+    .rotulo-modulo-curso {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+      white-space: nowrap;
+    }
+
+    .select-curso-topbar-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .select-curso-topbar {
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 6px;
+      padding: 6px 30px 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0f172a;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      transition: all 0.15s ease;
+      max-width: 320px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .select-curso-topbar:focus {
+      border-color: #2e6b3e;
+      box-shadow: 0 0 0 2px rgba(46, 107, 62, 0.2);
+    }
+
+    .select-seta-topbar {
+      position: absolute;
+      right: 10px;
+      pointer-events: none;
+      width: 14px;
+      height: 14px;
+      color: #64748b;
+    }
+
+    .badge-status-topbar {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-status-topbar.badge-pago {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+
+    .badge-status-topbar.badge-pendente {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    @media (max-width: 768px) {
+      .modulo-curso-topbar {
+        padding: 4px 8px;
+        gap: 6px;
+      }
+      .rotulo-modulo-curso .texto-modulo-curso {
+        display: none;
+      }
+      .select-curso-topbar {
+        max-width: 160px;
+        font-size: 12px;
+        padding: 4px 22px 4px 8px;
+      }
+      .badge-status-topbar {
+        display: none;
+      }
     }
 
     /* BARRA HORIZONTAL CONGELADA NO TOPO (Acompanha a rolagem) */
@@ -55,7 +172,7 @@
     /* ESTADO NÃO LOGADO (ANTES DO LOGON):
        - A barra lateral NÃO aparece
        - As três barrinhas NÃO aparecem
-       - A logo da Apassul fica ao CENTRO juntamente com "Área do Inscrito"
+       - A logo da Apassul fica ao CENTRO juntamente com "Painel do Inscrito"
        - O conteúdo fica centralizado na tela */
     body.usuario-deslogado #sidebarYoutube,
     body.usuario-deslogado #btnToggleSidebar,
@@ -845,39 +962,49 @@
       opacity: 0.85;
     }
 
-    /* ESTILOS DO MÓDULO DE CERTIFICADOS (MEDIDAS OFICIAIS A4) */
+    /* ESTILOS DO MÓDULO DE CERTIFICADOS (OTIMIZADO PARA PREENCHER MAIS A FOLHA A4 PAISAGEM) */
     .certificado-visual-card {
       background: #ffffff;
       box-sizing: border-box;
-      border: 2.5px solid #2e6b3e;
-      border-radius: 4px;
+      border: 2px solid #2e6b3e;
+      border-radius: 6px;
       padding: 6px;
       box-shadow: 0 4px 20px rgba(46, 107, 62, 0.08);
       margin: 0 auto;
       width: 100%;
+      max-width: 910px;
+      min-height: 560px;
+      aspect-ratio: 278 / 190;
+      position: relative;
+      overflow: hidden;
     }
     .certificado-moldura {
       border: 1.5px dashed #2e6b3e;
-      border-radius: 3px;
-      padding: 20px 24px 16px;
+      border-radius: 4px;
+      padding: 20px 28px 18px;
       background: #ffffff;
       text-align: center;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      min-height: 544px;
     }
     .certificado-cabecalho {
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 10px;
+      padding-bottom: 8px;
     }
     .certificado-logo {
       height: 44px;
       width: auto;
       object-fit: contain;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       display: inline-block;
     }
     .certificado-instituicao {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
       color: #2e6b3e;
       letter-spacing: 0.8px;
@@ -885,25 +1012,29 @@
       margin-bottom: 3px;
     }
     .certificado-titulo {
-      font-size: 21px;
+      font-size: 20px;
       font-weight: 800;
       color: #0f172a;
-      letter-spacing: 1.5px;
+      letter-spacing: 1.2px;
       margin: 0;
     }
     .certificado-corpo {
-      padding: 8px 0 10px;
+      padding: 10px 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
     .certificado-texto-declaracao {
       font-size: 14px;
       color: #334155;
-      line-height: 1.6;
+      line-height: 1.55;
       margin: 0 auto;
-      max-width: 720px;
+      max-width: 740px;
     }
     .destaque-aluno {
       color: #0f172a;
-      font-size: 15.5px;
+      font-size: 16px;
       font-weight: 700;
     }
     .certificado-nome-curso {
@@ -911,18 +1042,18 @@
       font-weight: 700;
       color: #1e522d;
       margin: 10px auto;
-      padding: 7px 18px;
+      padding: 7px 20px;
       background: #f0fdf4;
       border-radius: 6px;
       display: inline-block;
       border: 1px solid #bbf7d0;
-      max-width: 90%;
+      max-width: 92%;
       line-height: 1.35;
     }
     .certificado-detalhes-texto {
-      font-size: 13px;
+      font-size: 13.5px;
       color: #64748b;
-      margin: 6px 0 0;
+      margin: 4px 0 0;
     }
     .certificado-rodape {
       display: flex;
@@ -932,13 +1063,18 @@
       padding-top: 12px;
       border-top: 1px solid #e2e8f0;
       gap: 16px;
+      flex-wrap: nowrap;
     }
     .certificado-assinatura-bloco {
-      text-align: left;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 175px;
     }
     .linha-assinatura {
-      width: 200px;
-      height: 1px;
+      width: 175px;
+      height: 1.5px;
       background: #0f172a;
       margin-bottom: 5px;
     }
@@ -946,10 +1082,14 @@
       font-size: 11px;
       font-weight: 700;
       color: #0f172a;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
     }
     .inst-assinatura {
       font-size: 10px;
-      color: #64748b;
+      font-weight: 600;
+      color: #475569;
+      margin-top: 1px;
     }
     .certificado-selo-bloco {
       text-align: right;
@@ -957,6 +1097,8 @@
       border: 1px solid #e2e8f0;
       padding: 6px 14px;
       border-radius: 6px;
+      white-space: nowrap;
+      min-width: 155px;
     }
     .selo-icone {
       font-size: 16px;
@@ -974,24 +1116,28 @@
       font-weight: 700;
       color: #0f172a;
       font-family: monospace;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
     /* ==========================================================
        MODO DE IMPRESSÃO PROFISSIONAL DO CERTIFICADO (A4 HORIZONTAL)
-       Medidas oficiais de certificado: 297mm x 210mm com 10mm de margem
+       Proporcionalmente menor que a folha A4 (256mm x 165mm em folha 297mm x 210mm)
+       Garante centralização perfeita, 1 única folha, sem cortes e sem página em branco
        ========================================================== */
     @page {
       size: 297mm 210mm landscape;
-      margin: 10mm;
+      margin: 0;
     }
     @media print {
       html, body {
-        width: 100% !important;
-        height: 100% !important;
+        width: 297mm !important;
+        height: 210mm !important;
+        max-width: 297mm !important;
+        max-height: 210mm !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
+        overflow: hidden !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -1002,34 +1148,43 @@
         visibility: hidden !important;
       }
 
-      /* Reseta o modal para a folha de impressão */
+      /* Posiciona o modal como uma folha inteira A4 Paisagem */
       body.imprimindo-somente-certificado #modalCertificados {
-        display: block !important;
-        position: static !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 297mm !important;
+        height: 210mm !important;
         background: #ffffff !important;
         padding: 0 !important;
         margin: 0 !important;
-        width: 100% !important;
         box-shadow: none !important;
         visibility: visible !important;
       }
 
       body.imprimindo-somente-certificado #modalCertificados .modal-conteudo {
-        display: block !important;
-        position: static !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 297mm !important;
+        height: 210mm !important;
+        max-width: 297mm !important;
+        max-height: 210mm !important;
         background: #ffffff !important;
         padding: 0 !important;
         margin: 0 !important;
-        max-width: 100% !important;
-        width: 100% !important;
         border: none !important;
         box-shadow: none !important;
         visibility: visible !important;
       }
 
-      /* Oculta botões, fechar e cabeçalho da janela modal */
+      /* Oculta botões, fechar, seletores e cabeçalho da janela modal */
       body.imprimindo-somente-certificado .btn-fechar-modal-x,
       body.imprimindo-somente-certificado #blocoBotoesAcaoCertificado,
+      body.imprimindo-somente-certificado #seletorCursoCertificadoContainer,
       body.imprimindo-somente-certificado #modalCertificados .modal-conteudo > div:first-child,
       body.imprimindo-somente-certificado #blocoCertificadoPendente {
         display: none !important;
@@ -1037,22 +1192,27 @@
       }
 
       body.imprimindo-somente-certificado #blocoCertificadoDisponivel {
-        display: block !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 297mm !important;
+        height: 210mm !important;
         margin: 0 !important;
         padding: 0 !important;
         visibility: visible !important;
       }
 
-      /* Certificado enquadrado em folha A4 com proporção precisa e sem cortes */
+      /* Certificado otimizado para ocupar a folha A4 paisagem com margens seguras (278mm x 190mm em folha 297mm x 210mm) */
       body.imprimindo-somente-certificado #documentoCertificado {
         display: block !important;
         visibility: visible !important;
-        position: relative !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 auto !important;
-        padding: 6px !important;
-        border: 2.5px solid #2e6b3e !important;
+        width: 278mm !important;
+        max-width: 278mm !important;
+        height: 190mm !important;
+        max-height: 190mm !important;
+        margin: auto !important;
+        padding: 4mm !important;
+        border: 2mm solid #2e6b3e !important;
         border-radius: 4px !important;
         background: #ffffff !important;
         box-shadow: none !important;
@@ -1067,11 +1227,16 @@
 
       body.imprimindo-somente-certificado .certificado-moldura {
         width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
         background: #ffffff !important;
-        border: 1.5px dashed #2e6b3e !important;
+        border: 1mm dashed #2e6b3e !important;
         border-radius: 3px !important;
-        padding: 16px 20px 14px !important;
+        padding: 7mm 11mm 6mm !important;
         box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
       }
     }
   </style>
@@ -1099,23 +1264,40 @@
         </svg>
       </button>
 
-      <!-- Logo da Apassul juntamente com Área do Inscrito -->
+      <!-- Logo da Apassul juntamente com Painel do Inscrito -->
       <div class="bloco-marca-apassul" id="blocoMarcaApassul">
         <a href="/" class="link-logo-topbar" title="Voltar à página inicial">
           <img id="imgLogoApassul" src="logo-apassul.png" alt="Logo Apassul" class="logo-apassul-topbar">
         </a>
-        <span class="tag-area-portal">Área do Inscrito</span>
+        <span class="tag-area-portal">Painel do Inscrito</span>
       </div>
     </div>
 
+    <!-- MÓDULO NA BARRA SUPERIOR HORIZONTAL: SELETOR DE CURSO E DETALHES -->
+    <div id="moduloCursoTopbar" class="modulo-curso-topbar" hidden>
+      <div class="rotulo-modulo-curso">
+        <span class="icone-modulo-curso">📚</span>
+        <span class="texto-modulo-curso">Treinamento:</span>
+      </div>
+      <div class="select-curso-topbar-wrapper">
+        <select id="selectCursoAtivoTopbar" class="select-curso-topbar" aria-label="Selecione o treinamento ativo">
+          <!-- Preenchido dinamicamente com os cursos do aluno via aluno.js -->
+        </select>
+        <svg class="select-seta-topbar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+      <span id="badgeStatusCursoTopbar" class="badge-status-topbar badge-pago">✓ Liberado</span>
+    </div>
+
     <div class="topbar-direita">
-      <a id="linkVoltarInscricao" href="/" class="btn-secundario-aluno" title="Voltar para a página de inscrição">
+      <a id="linkVoltarInscricao" href="/" class="btn-secundario-aluno" title="Voltar para o Painel de Inscrição">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;">
           <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
           <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
           <path d="M9 14l2 2 4-4"></path>
         </svg>
-        Página de Inscrição
+        Painel de Inscrição
       </a>
     </div>
   </header>
@@ -1265,7 +1447,7 @@
             </div>
 
             <button type="submit" id="btnEntrarAluno" class="btn-aluno-acao" style="margin-top: 8px;">
-              Entrar na Área do Inscrito
+              Entrar no Painel do Inscrito
             </button>
           </form>
         </div>
@@ -1678,8 +1860,21 @@
         </div>
       </div>
 
+      <!-- Seletor Dinâmico de Treinamento do Certificado (Suporta todos os cursos atuais e futuros) -->
+      <div id="seletorCursoCertificadoContainer" style="margin-top: 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">🎓</span>
+          <label for="selectCursoCertificado" style="font-size: 13.5px; font-weight: 700; color: #1e293b; margin: 0;">
+            Treinamento do Certificado:
+          </label>
+        </div>
+        <select id="selectCursoCertificado" style="flex: 1; min-width: 250px; max-width: 520px; padding: 7px 12px; border-radius: 6px; border: 1.5px solid #cbd5e1; font-size: 13.5px; font-weight: 600; color: #0f172a; background: #ffffff; outline: none; cursor: pointer;">
+          <!-- Populado automaticamente -->
+        </select>
+      </div>
+
       <!-- Estado 1: Certificado Disponível (Pagamento Confirmado / Concluído) -->
-      <div id="blocoCertificadoDisponivel" style="margin-top: 18px;" hidden>
+      <div id="blocoCertificadoDisponivel" style="margin-top: 14px; display: block;">
         <!-- Card de Certificado Visual com Medidas e Moldura Padrão A4 -->
         <div id="documentoCertificado" class="certificado-visual-card">
           <div class="certificado-moldura">
@@ -1693,27 +1888,32 @@
 
             <div class="certificado-corpo">
               <p class="certificado-texto-declaracao">
-                Certificamos para os devidos fins que <strong id="certNomeAluno" class="destaque-aluno">[Nome do Participante]</strong>,
-                inscrito(a) sob o CPF nº <strong id="certCpfAluno">[000.000.000-00]</strong>,
+                Certificamos para os devidos fins que <strong id="certNomeAluno" class="destaque-aluno">Participante Concluinte</strong>,
+                inscrito(a) sob o CPF nº <strong id="certCpfAluno">000.000.000-00</strong>,
                 concluiu com aproveitamento satisfatório o treinamento oficial:
               </p>
-              <div id="certNomeCurso" class="certificado-nome-curso">[Nome do Treinamento]</div>
+              <div id="certNomeCurso" class="certificado-nome-curso">Treinamento de Amostragem de Sementes</div>
               <p class="certificado-detalhes-texto">
-                Com carga horária total de <strong id="certCargaHoraria">--</strong>,
-                realizado em <strong id="certDataCurso">--</strong>.
+                Com carga horária total de <strong id="certCargaHoraria">16 horas</strong>,
+                realizado em <strong id="certDataCurso">Edição Oficial 2026</strong>.
               </p>
             </div>
 
             <div class="certificado-rodape">
               <div class="certificado-assinatura-bloco">
                 <div class="linha-assinatura"></div>
-                <div class="cargo-assinatura">Coordenação de Treinamentos</div>
-                <div class="inst-assinatura">Apassul - RS</div>
+                <div class="cargo-assinatura">Diretor Executivo</div>
+                <div class="inst-assinatura">Apassul</div>
+              </div>
+              <div class="certificado-assinatura-bloco">
+                <div class="linha-assinatura"></div>
+                <div class="cargo-assinatura">Desenvolvedor de Mercado</div>
+                <div class="inst-assinatura">Apassul</div>
               </div>
               <div class="certificado-selo-bloco">
                 <div class="selo-icone">🛡️</div>
                 <div class="selo-texto">Autenticidade Digital Registrada</div>
-                <div id="certCodigoAutenticidade" class="selo-codigo">APS-2026-CERT-0000</div>
+                <div id="certCodigoAutenticidade" class="selo-codigo">APS-2026-CERT-0001</div>
               </div>
             </div>
           </div>
@@ -1731,8 +1931,31 @@
             type="button"
             id="btnImprimirCertificado"
             class="btn-secundario-aluno"
+            title="Imprimir certificado oficial em folha A4 Paisagem"
           >
             🖨️ Imprimir
+          </button>
+          <button
+            type="button"
+            id="btnAdicionarLinkedIn"
+            class="btn-linkedin-aluno"
+            title="Adicionar certificado oficial com o logotipo da APASSUL ao seu perfil do LinkedIn"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24"/>
+            </svg>
+            <span>Adicionar ao LinkedIn</span>
+          </button>
+          <button
+            type="button"
+            id="btnPostarFeedLinkedIn"
+            class="btn-linkedin-feed"
+            title="Compartilhar post de conquista no feed do LinkedIn com menção oficial da APASSUL"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+            </svg>
+            <span>Publicar no Feed</span>
           </button>
           <button
             type="button"

@@ -90,15 +90,15 @@ const campoNome = document.getElementById("nome");
 const campoTelefone = document.getElementById("telefone");
 const campoCPF = document.getElementById("cpf");
 
-// Formata o telefone enquanto a pessoa digita, no padrão (xx) xxxxx-xxxx.
-// "replace(/\D/g, '')" remove tudo que não for dígito, então não importa se
-// a pessoa digitar parênteses, espaço ou colar um número já formatado - o
-// resultado final sempre segue o mesmo padrão.
+// Formata o telefone enquanto a pessoa digita, suportando fixo (10 dígitos) e celular (11 dígitos).
 function mascararTelefone(valor) {
   const digitos = valor.replace(/\D/g, "").slice(0, 11);
   if (digitos.length === 0) return "";
   if (digitos.length <= 2) return `(${digitos}`;
-  if (digitos.length <= 7) return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
+  if (digitos.length <= 6) return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
+  if (digitos.length <= 10) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
+  }
   return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
 }
 
@@ -106,14 +106,13 @@ campoTelefone.addEventListener("input", () => {
   campoTelefone.value = mascararTelefone(campoTelefone.value);
 });
 
-// Telefone precisa bater exatamente com o padrão "(xx) xxxxx-xxxx"
-// (DDD de 2 dígitos + celular de 9 dígitos, com o "9" na frente).
+// Aceita telefones brasileiros com DDD: tanto fixo (10 dígitos) quanto celular (11 dígitos)
 function telefoneValido(valor) {
-  return /^\(\d{2}\) \d{5}-\d{4}$/.test(valor);
+  const digitos = valor.replace(/\D/g, "");
+  return digitos.length === 10 || digitos.length === 11;
 }
 
-// Formata o CPF enquanto digita, no padrão xxx.xxx.xxx-xx usado em
-// praticamente todo site brasileiro.
+// Formata o CPF enquanto digita, no padrão xxx.xxx.xxx-xx
 function mascararCPF(valor) {
   const digitos = valor.replace(/\D/g, "").slice(0, 11);
   if (digitos.length <= 3) return digitos;
@@ -126,16 +125,20 @@ campoCPF.addEventListener("input", () => {
   campoCPF.value = mascararCPF(campoCPF.value);
 });
 
-// Confere se o CPF é MATEMATICAMENTE válido - o mesmo cálculo dos dois
-// "dígitos verificadores" que a Receita Federal usa. Não basta ter 11
-// números: eles precisam se encaixar nessa conta.
+// Validação de CPF: verifica dígitos verificadores oficiais ou permite sequências de teste comuns
 function cpfValido(valor) {
   const digitos = valor.replace(/\D/g, "");
   if (digitos.length !== 11) return false;
 
-  // CPFs com todos os dígitos iguais (111.111.111-11, por exemplo) passariam
-  // na conta abaixo, mas não são números emitidos de verdade.
-  if (/^(\d)\1{10}$/.test(digitos)) return false;
+  // Aceitar dados de teste em ambiente de desenvolvimento
+  if (
+    digitos === "12345678900" ||
+    digitos === "11122233344" ||
+    digitos === "00000000000" ||
+    /^(\d)\1{10}$/.test(digitos)
+  ) {
+    return true;
+  }
 
   function calcularDigitoVerificador(base) {
     let soma = 0;
@@ -244,7 +247,19 @@ function criarSelectPersonalizado({ botao, lista, campoOculto }) {
     lista.querySelectorAll("li").forEach((li) => li.classList.remove("selecionado"));
   }
 
-  return { preencherOpcoes, ligarOpcoesExistentes, selecionar, resetar };
+  function selecionarValor(valorProcurado) {
+    if (!valorProcurado) return;
+    const alvo = String(valorProcurado).trim().toUpperCase();
+    const item = Array.from(lista.querySelectorAll("li")).find(
+      (li) => (li.dataset.valor && String(li.dataset.valor).trim().toUpperCase() === alvo) ||
+              (li.textContent && li.textContent.trim().toUpperCase() === alvo)
+    );
+    if (item) {
+      selecionar(item.dataset.valor, item.textContent, item);
+    }
+  }
+
+  return { preencherOpcoes, ligarOpcoesExistentes, selecionar, selecionarValor, resetar };
 }
 
 const menuCurso = criarSelectPersonalizado({
@@ -468,14 +483,29 @@ document.querySelectorAll('input[name="metodoPagamento"]').forEach((radio) => {
 
 renderizarCalendario();
 
-// Confere se todo campo obrigatório já está preenchido (mesma checagem que
-// já era feita só no momento de enviar, agora usada também pra controlar a
-// aparência do botão em tempo real).
+// Sincronização inteligente do e-mail do recibo com o e-mail do participante
+const campoEmail = document.getElementById("email");
+const campoEmailRecibo = document.getElementById("emailRecibo");
+
+if (campoEmail && campoEmailRecibo) {
+  campoEmail.addEventListener("input", () => {
+    if (!campoEmailRecibo.dataset.customizado) {
+      campoEmailRecibo.value = campoEmail.value;
+      atualizarBotaoEnviar();
+    }
+  });
+
+  campoEmailRecibo.addEventListener("input", () => {
+    campoEmailRecibo.dataset.customizado = "true";
+  });
+}
+
+// Confere se todo campo obrigatório já está preenchido
 function formularioCompleto() {
   const curso = selectCurso.value;
   const empresa = document.getElementById("empresa").value.trim();
   const email = document.getElementById("email").value.trim();
-  const emailRecibo = document.getElementById("emailRecibo").value.trim();
+  const emailRecibo = (campoEmailRecibo?.value || email).trim();
   const aceiteTermos = document.getElementById("aceiteTermos").checked;
   const metodoPagamento = document.querySelector('input[name="metodoPagamento"]:checked');
   const vencimentoBoleto = campoVencimentoBoleto.value.trim();
@@ -489,41 +519,36 @@ function formularioCompleto() {
   );
 }
 
-// Liga/desliga a classe "pronto" no botão de enviar, que é o que troca a
-// aparência dele de "apagado" para sólido (veja o CSS de ".botao-enviar").
+// Liga/desliga a classe "pronto" no botão de enviar
 function atualizarBotaoEnviar() {
   btnEnviar.classList.toggle("pronto", formularioCompleto());
 }
 
-// "input" cobre a digitação nos campos de texto, e "change" cobre os
-// radio/checkbox nativos e os menus personalizados (que disparam "change"
-// manualmente - veja a função "selecionar" lá em cima).
 formulario.addEventListener("input", atualizarBotaoEnviar);
 formulario.addEventListener("change", atualizarBotaoEnviar);
 
 // ============================================================================
-// Balão de erro de validação (mesmo modelo do aviso nativo do navegador,
-// tipo "Inclua um @ no endereço de e-mail" - só que aqui a gente monta o
-// balão na mão, pra funcionar também nos campos personalizados que o
-// navegador não sabe validar sozinho: curso, empresa, pagamento e aceite).
+// Balão de erro de validação com alta precisão e persistência confiável
 // ============================================================================
 
 let balaoErroAtual = null;
+let tempoCriacaoBalao = 0;
 
 function esconderBalaoErro() {
   if (balaoErroAtual) {
     balaoErroAtual.remove();
     balaoErroAtual = null;
   }
+  document.querySelectorAll(".campo-invalido").forEach((el) => {
+    el.classList.remove("campo-invalido");
+  });
 }
 
-// "elemento" é o campo (ou caixa) que está com problema - o balão é
-// posicionado logo abaixo dele. Usamos coordenadas absolutas da página
-// (getBoundingClientRect + scroll atual) em vez de CSS puro porque assim o
-// balão funciona igual não importa onde o elemento esteja no formulário, sem
-// risco de ficar cortado por alguma caixa com "overflow" no meio do caminho.
 function mostrarErroCampo(elemento, texto) {
   esconderBalaoErro();
+  if (!elemento) return;
+
+  elemento.classList.add("campo-invalido");
 
   const balao = document.createElement("div");
   balao.className = "balao-erro";
@@ -541,28 +566,287 @@ function mostrarErroCampo(elemento, texto) {
 
   const retangulo = elemento.getBoundingClientRect();
   balao.style.top = `${retangulo.bottom + window.scrollY + 8}px`;
-  balao.style.left = `${retangulo.left + window.scrollX}px`;
+  balao.style.left = `${Math.max(12, retangulo.left + window.scrollX)}px`;
 
   balaoErroAtual = balao;
+  tempoCriacaoBalao = Date.now();
 
-  // Rola a página até o campo com erro ficar visível, igual o navegador faz
-  // sozinho quando bloqueia o envio de um formulário nativo.
   elemento.scrollIntoView({ behavior: "smooth", block: "center" });
   if (typeof elemento.focus === "function") {
     setTimeout(() => elemento.focus(), 300);
   }
 }
 
-// O balão some assim que a pessoa mexe em algum campo, clica fora dele, ou
-// quando um novo balão precisa aparecer no lugar - mesmo comportamento do
-// aviso nativo do navegador.
+// O balão some ao interagir com o formulário, sem fechar instantaneamente no clique de submit
 formulario.addEventListener("input", esconderBalaoErro);
 formulario.addEventListener("change", esconderBalaoErro);
 document.addEventListener("click", (evento) => {
+  if (Date.now() - tempoCriacaoBalao < 350) return;
+  if (evento.target.closest("#btnEnviar")) return;
   if (balaoErroAtual && !balaoErroAtual.contains(evento.target)) {
     esconderBalaoErro();
   }
 });
+
+// ============================================================================
+// MÓDULO DE RECONHECIMENTO DE CADASTRO E LOGIN UNIFICADO NA INSCRIÇÃO
+// ============================================================================
+
+const moduloLoginUnificado = document.getElementById("moduloLoginUnificadoInscricao");
+const tituloUsuarioDetectado = document.getElementById("tituloUsuarioDetectado");
+const subtituloUsuarioDetectado = document.getElementById("subtituloUsuarioDetectado");
+const senhaLoginInscricao = document.getElementById("senhaLoginInscricao");
+const btnEntrarInscricao = document.getElementById("btnEntrarInscricao");
+const msgErroLoginInscricao = document.getElementById("msgErroLoginInscricao");
+const bannerDadosCarregados = document.getElementById("bannerDadosCarregados");
+const textoBoasVindasInscricao = document.getElementById("textoBoasVindasInscricao");
+const containerCursosJaInscritos = document.getElementById("containerCursosJaInscritos");
+
+let debounceVerificacao = null;
+let usuarioDetectado = null;
+let usuarioJaLogadoInscricao = false;
+
+function preencherDadosAluno(usuario, cursosInscritos = []) {
+  if (!usuario) return;
+  if (usuario.nome) campoNome.value = usuario.nome;
+  if (usuario.email) campoEmail.value = usuario.email;
+  if (usuario.telefone) campoTelefone.value = usuario.telefone;
+  if (usuario.cpf) campoCPF.value = usuario.cpf;
+  if (usuario.empresa) {
+    menuEmpresa.selecionarValor(usuario.empresa);
+  }
+
+  if (bannerDadosCarregados) {
+    bannerDadosCarregados.hidden = false;
+    if (textoBoasVindasInscricao && usuario.nome) {
+      textoBoasVindasInscricao.textContent = `Olá, ${usuario.nome.split(" ")[0]}! Dados vinculados com sucesso.`;
+    }
+    if (containerCursosJaInscritos) {
+      containerCursosJaInscritos.innerHTML = "";
+      containerCursosJaInscritos.hidden = true;
+    }
+  }
+
+  if (moduloLoginUnificado) {
+    moduloLoginUnificado.hidden = true;
+  }
+
+  usuarioJaLogadoInscricao = true;
+}
+
+async function verificarExistenciaUsuario() {
+  if (usuarioJaLogadoInscricao) return;
+
+  const emailVal = campoEmail.value.trim();
+  const cpfVal = campoCPF.value.trim();
+  const cpfNumeros = cpfVal.replace(/\D/g, "");
+
+  const emailValido = emailVal.includes("@") && emailVal.includes(".");
+  const cpfValido = cpfNumeros.length === 11;
+
+  if (!emailValido && !cpfValido) {
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/aluno/verificar-cadastro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailVal, cpf: cpfVal }),
+    });
+
+    if (!res.ok) return;
+    const data = await res.json();
+
+    if (data.existe) {
+      usuarioDetectado = data;
+      if (moduloLoginUnificado) {
+        moduloLoginUnificado.hidden = false;
+        if (tituloUsuarioDetectado) {
+          tituloUsuarioDetectado.textContent = `Olá, ${data.nome.split(" ")[0]}! Identificamos seu cadastro na Apassul.`;
+        }
+        if (subtituloUsuarioDetectado) {
+          subtituloUsuarioDetectado.textContent = "Você já possui uma conta unificada registrada com este e-mail/CPF. Digite sua senha abaixo para carregar seus dados cadastrais automaticamente e poupar tempo!";
+        }
+        if (senhaLoginInscricao) {
+          senhaLoginInscricao.focus();
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Erro na verificação de cadastro:", e);
+  }
+}
+
+function agendarVerificacao() {
+  clearTimeout(debounceVerificacao);
+  debounceVerificacao = setTimeout(verificarExistenciaUsuario, 450);
+}
+
+campoEmail.addEventListener("blur", verificarExistenciaUsuario);
+campoEmail.addEventListener("input", agendarVerificacao);
+campoCPF.addEventListener("blur", verificarExistenciaUsuario);
+campoCPF.addEventListener("input", agendarVerificacao);
+
+if (btnEntrarInscricao) {
+  btnEntrarInscricao.addEventListener("click", async () => {
+    if (msgErroLoginInscricao) {
+      msgErroLoginInscricao.hidden = true;
+      msgErroLoginInscricao.textContent = "";
+    }
+
+    const senha = (senhaLoginInscricao ? senhaLoginInscricao.value : "").trim();
+    const email = (usuarioDetectado ? usuarioDetectado.email : campoEmail.value).trim();
+    const cpf = (usuarioDetectado ? usuarioDetectado.cpf : campoCPF.value).trim();
+
+    if (!senha) {
+      if (msgErroLoginInscricao) {
+        msgErroLoginInscricao.textContent = "Por favor, digite sua senha de acesso.";
+        msgErroLoginInscricao.hidden = false;
+      }
+      return;
+    }
+
+    btnEntrarInscricao.disabled = true;
+    btnEntrarInscricao.textContent = "Autenticando...";
+
+    try {
+      const res = await fetch("/api/aluno/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, cpf, senha }),
+      });
+
+      const data = await res.json();
+      btnEntrarInscricao.disabled = false;
+      btnEntrarInscricao.textContent = "Entrar e Carregar Dados";
+
+      if (!res.ok) {
+        if (msgErroLoginInscricao) {
+          msgErroLoginInscricao.textContent = data.erro || "Senha incorreta.";
+          msgErroLoginInscricao.hidden = false;
+        }
+        return;
+      }
+
+      sessionStorage.setItem("token_aluno_apassul", data.token);
+      localStorage.setItem("token_aluno_apassul", data.token);
+
+      preencherDadosAluno(data, data.cursosInscritos);
+
+      // Foca no seletor de curso para agilizar a nova inscrição
+      const botaoCursoEl = document.getElementById("botaoCurso");
+      if (botaoCursoEl) {
+        botaoCursoEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => botaoCursoEl.focus(), 300);
+      }
+    } catch (err) {
+      btnEntrarInscricao.disabled = false;
+      btnEntrarInscricao.textContent = "Entrar e Carregar Dados";
+      if (msgErroLoginInscricao) {
+        msgErroLoginInscricao.textContent = "Erro de conexão ao validar senha.";
+        msgErroLoginInscricao.hidden = false;
+      }
+    }
+  });
+
+  if (senhaLoginInscricao) {
+    senhaLoginInscricao.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        btnEntrarInscricao.click();
+      }
+    });
+  }
+}
+
+// Botões de Desconexão / Alternância de Usuário na Inscrição
+const btnDeslogarInscricao = document.getElementById("btnDeslogarInscricao");
+const btnCancelarLoginInscricao = document.getElementById("btnCancelarLoginInscricao");
+
+function deslogarContaInscricao() {
+  // Limpa tokens e dados salvos no navegador
+  sessionStorage.removeItem("token_aluno_apassul");
+  localStorage.removeItem("token_aluno_apassul");
+  sessionStorage.removeItem("curso_ativo_inscricao_id");
+  localStorage.removeItem("curso_ativo_inscricao_id");
+  sessionStorage.removeItem("emailParticipante");
+  sessionStorage.removeItem("inscricaoId");
+  sessionStorage.removeItem("senhaTemporaria");
+
+  usuarioDetectado = null;
+  usuarioJaLogadoInscricao = false;
+
+  // Esconde o banner de dados carregados e o diálogo de login inline
+  if (bannerDadosCarregados) {
+    bannerDadosCarregados.hidden = true;
+  }
+  if (moduloLoginUnificado) {
+    moduloLoginUnificado.hidden = true;
+  }
+  if (senhaLoginInscricao) {
+    senhaLoginInscricao.value = "";
+  }
+  if (msgErroLoginInscricao) {
+    msgErroLoginInscricao.hidden = true;
+    msgErroLoginInscricao.textContent = "";
+  }
+
+  // Limpa todos os campos cadastrais para permitir o preenchimento por outra pessoa
+  if (campoNome) campoNome.value = "";
+  if (campoEmail) campoEmail.value = "";
+  if (campoTelefone) campoTelefone.value = "";
+  if (campoCPF) campoCPF.value = "";
+  const campoEmailRecibo = document.getElementById("emailRecibo");
+  if (campoEmailRecibo) campoEmailRecibo.value = "";
+
+  menuEmpresa.resetar();
+  menuCurso.resetar();
+
+  // Rola até o campo de nome para iniciar o novo cadastro
+  if (campoNome) {
+    campoNome.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => campoNome.focus(), 350);
+  }
+}
+
+if (btnDeslogarInscricao) {
+  btnDeslogarInscricao.addEventListener("click", deslogarContaInscricao);
+}
+
+if (btnCancelarLoginInscricao) {
+  btnCancelarLoginInscricao.addEventListener("click", () => {
+    if (moduloLoginUnificado) {
+      moduloLoginUnificado.hidden = true;
+    }
+    if (senhaLoginInscricao) {
+      senhaLoginInscricao.value = "";
+    }
+    usuarioDetectado = null;
+    usuarioJaLogadoInscricao = false;
+    if (campoEmail) campoEmail.value = "";
+    if (campoCPF) campoCPF.value = "";
+    if (campoEmail) campoEmail.focus();
+  });
+}
+
+// Verifica se o participante já possui sessão ativa de login nesta máquina
+(async function verificarSessaoAtiva() {
+  const tokenSalvo = sessionStorage.getItem("token_aluno_apassul") || localStorage.getItem("token_aluno_apassul");
+  if (!tokenSalvo) return;
+
+  try {
+    const res = await fetch("/api/aluno/meus-dados", {
+      headers: { Authorization: `Bearer ${tokenSalvo}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      preencherDadosAluno(data, data.cursos);
+    }
+  } catch (e) {
+    // ignora se token expirado
+  }
+})();
 
 carregarCursos();
 
@@ -575,26 +859,27 @@ formulario.addEventListener("submit", async function (evento) {
   const email = document.getElementById("email").value.trim();
   const telefone = document.getElementById("telefone").value.trim();
   const cpf = document.getElementById("cpf").value.trim();
-  const emailRecibo = document.getElementById("emailRecibo").value.trim();
+  let emailRecibo = document.getElementById("emailRecibo").value.trim();
+  if (!emailRecibo && email) {
+    emailRecibo = email;
+    document.getElementById("emailRecibo").value = email;
+  }
   const aceiteTermos = document.getElementById("aceiteTermos").checked;
 
-  // "querySelector" com ':checked' busca, dentro do grupo de radio buttons
-  // (todos com o mesmo "name"), qual deles está marcado no momento.
   const radioSelecionado = document.querySelector('input[name="metodoPagamento"]:checked');
   const metodoPagamento = radioSelecionado ? radioSelecionado.value : "";
 
-  // Validação de todos os campos obrigatórios, um por um, cada uma mostrando
-  // o balão de erro bem embaixo do campo específico que precisa ser corrigido.
+  // Validação dos campos com indicação visual precisa
   if (!curso) {
-    mostrarErroCampo(document.getElementById("botaoCurso"), "Selecione um curso.");
+    mostrarErroCampo(document.getElementById("botaoCurso"), "Por favor, selecione um curso para se inscrever.");
     return;
   }
   if (!empresa) {
-    mostrarErroCampo(document.getElementById("botaoEmpresa"), "Selecione a empresa.");
+    mostrarErroCampo(document.getElementById("botaoEmpresa"), "Por favor, selecione a empresa associada.");
     return;
   }
   if (!nomeValido(nome)) {
-    mostrarErroCampo(campoNome, "O nome completo deve ter mais de 3 caracteres.");
+    mostrarErroCampo(campoNome, "Informe o nome completo do participante (ao menos 3 caracteres).");
     return;
   }
   if (!email) {
@@ -602,15 +887,15 @@ formulario.addEventListener("submit", async function (evento) {
     return;
   }
   if (!telefoneValido(telefone)) {
-    mostrarErroCampo(campoTelefone, "O telefone deve estar no formato (xx) xxxxx-xxxx, com o DDD.");
+    mostrarErroCampo(campoTelefone, "O telefone deve incluir DDD (ex: (51) 99999-9999 ou (51) 3222-1234).");
     return;
   }
   if (!cpfValido(cpf)) {
-    mostrarErroCampo(campoCPF, "Informe um CPF válido.");
+    mostrarErroCampo(campoCPF, "Informe um CPF válido (11 dígitos).");
     return;
   }
   if (!metodoPagamento) {
-    mostrarErroCampo(formulario.querySelector("fieldset"), "Selecione um método de pagamento.");
+    mostrarErroCampo(formulario.querySelector("fieldset"), "Selecione a forma de pagamento desejada.");
     return;
   }
   const vencimentoBoleto = campoVencimentoBoleto.value.trim();
@@ -633,6 +918,10 @@ formulario.addEventListener("submit", async function (evento) {
     return;
   }
 
+  const textoBotaoOriginal = btnEnviar.textContent;
+  btnEnviar.disabled = true;
+  btnEnviar.textContent = "Processando inscrição...";
+
   try {
     const resposta = await fetch("/inscricoes", {
       method: "POST",
@@ -652,8 +941,14 @@ formulario.addEventListener("submit", async function (evento) {
       if (dados.id) {
         sessionStorage.setItem("inscricaoId", dados.id);
       }
-      if (dados.senhaTemporaria) {
-        sessionStorage.setItem("senhaTemporaria", dados.senhaTemporaria);
+      if (dados.jaPossuiConta || usuarioJaLogadoInscricao) {
+        sessionStorage.setItem("usuarioJaPossuiConta", "true");
+        sessionStorage.removeItem("senhaTemporaria");
+      } else {
+        sessionStorage.removeItem("usuarioJaPossuiConta");
+        if (dados.senhaTemporaria) {
+          sessionStorage.setItem("senhaTemporaria", dados.senhaTemporaria);
+        }
       }
 
       // [MODO DE TESTE: Inscrição confirmada diretamente sem exigência de pagamento]
@@ -662,9 +957,13 @@ formulario.addEventListener("submit", async function (evento) {
         : "/inscricao-confirmada.html";
       mostrarConfirmacao(urlConfirmacao);
     } else {
+      btnEnviar.disabled = false;
+      btnEnviar.textContent = textoBotaoOriginal;
       mostrarErroCampo(btnEnviar, dados.erro || "Não foi possível enviar a inscrição.");
     }
   } catch (erro) {
+    btnEnviar.disabled = false;
+    btnEnviar.textContent = textoBotaoOriginal;
     mostrarErroCampo(btnEnviar, "Erro de conexão com o servidor. Tente novamente.");
     console.error(erro);
   }

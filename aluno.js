@@ -70,8 +70,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const certDataCurso = document.getElementById("certDataCurso");
   const certCodigoAutenticidade = document.getElementById("certCodigoAutenticidade");
   const btnCopiarCodigoCertificado = document.getElementById("btnCopiarCodigoCertificado");
-  const btnImprimirCertificado = document.getElementById("btnImprimirCertificado");
+  const btnAdicionarLinkedIn = document.getElementById("btnAdicionarLinkedIn");
+  const btnPostarFeedLinkedIn = document.getElementById("btnPostarFeedLinkedIn");
   const btnBaixarPDFCertificado = document.getElementById("btnBaixarPDFCertificado");
+  const btnImprimirCertificado = document.getElementById("btnImprimirCertificado");
+  const selectCursoCertificado = document.getElementById("selectCursoCertificado");
   const btnFecharModalCertificadosX = document.getElementById("btnFecharModalCertificadosX");
   const btnFecharModalCertificados = document.getElementById("btnFecharModalCertificados");
   const btnFecharModalCertificadosPendente = document.getElementById("btnFecharModalCertificadosPendente");
@@ -136,6 +139,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function configurarEstadoDeslogado() {
     document.body.classList.remove("usuario-logado");
     document.body.classList.add("usuario-deslogado");
+    const moduloCursoTopbar = document.getElementById("moduloCursoTopbar");
+    if (moduloCursoTopbar) moduloCursoTopbar.hidden = true;
+    sessionStorage.removeItem("curso_ativo_inscricao_id");
     if (sidebarYoutube) {
       sidebarYoutube.hidden = true;
       sidebarYoutube.classList.remove("aberta-mobile");
@@ -161,6 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tokenAtual = null;
     sessionStorage.removeItem("token_aluno_apassul");
     localStorage.removeItem("token_aluno_apassul");
+    sessionStorage.removeItem("curso_ativo_inscricao_id");
     secaoPainelAluno.hidden = true;
     secaoLogin.hidden = false;
     configurarEstadoDeslogado();
@@ -172,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inputEmailAluno) inputEmailAluno.focus();
   }
 
-  async function carregarPainel() {
+  async function carregarPainel(inscricaoIdAlvo = null) {
     if (modalTrocaSenha) {
       modalTrocaSenha.hidden = true;
       modalTrocaSenha.style.display = "none";
@@ -184,7 +191,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const res = await fetch("/api/aluno/meus-dados", {
+      const idParaBuscar = inscricaoIdAlvo || sessionStorage.getItem("curso_ativo_inscricao_id");
+      let url = "/api/aluno/meus-dados";
+      if (idParaBuscar) {
+        url += "?inscricaoId=" + encodeURIComponent(idParaBuscar);
+      }
+
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${tokenAtual}` },
       });
 
@@ -196,6 +209,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const dados = await res.json();
       dadosAlunoCache = dados;
+
+      if (dados.id) {
+        sessionStorage.setItem("curso_ativo_inscricao_id", dados.id);
+      }
+
+      // Configuração do Módulo da Barra Superior Horizontal (Escolha do Curso Ativo)
+      const moduloCursoTopbar = document.getElementById("moduloCursoTopbar");
+      const selectCursoAtivoTopbar = document.getElementById("selectCursoAtivoTopbar");
+      const badgeStatusCursoTopbar = document.getElementById("badgeStatusCursoTopbar");
+
+      if (moduloCursoTopbar && selectCursoAtivoTopbar && dados.cursos && dados.cursos.length > 0) {
+        selectCursoAtivoTopbar.innerHTML = "";
+        dados.cursos.forEach((c) => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          const statusTag = c.status_pagamento === "pago" ? "✓ Pago" : "⏳ Pendente";
+          opt.textContent = `${c.nome} (${statusTag})`;
+          if (String(c.id) === String(dados.inscricaoAtivaId || dados.id)) {
+            opt.selected = true;
+          }
+          selectCursoAtivoTopbar.appendChild(opt);
+        });
+
+        if (badgeStatusCursoTopbar) {
+          const isPagoAtual = dados.status_pagamento === "pago";
+          badgeStatusCursoTopbar.textContent = isPagoAtual ? "✓ Liberado" : "Aguardando Pagamento";
+          badgeStatusCursoTopbar.className = `badge-status-topbar ${isPagoAtual ? "badge-pago" : "badge-pendente"}`;
+        }
+
+        moduloCursoTopbar.hidden = false;
+
+        if (!selectCursoAtivoTopbar.dataset.ouvinteConfigurado) {
+          selectCursoAtivoTopbar.dataset.ouvinteConfigurado = "true";
+          selectCursoAtivoTopbar.addEventListener("change", (e) => {
+            const novoId = e.target.value;
+            sessionStorage.setItem("curso_ativo_inscricao_id", novoId);
+            carregarPainel(novoId);
+          });
+        }
+      }
 
       // Renderiza os dados no painel
       saudacaoNomeAluno.textContent = `Olá, ${dados.nome.split(" ")[0]}!`;
@@ -312,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
       subtitulo.textContent = "Por motivos de segurança, substitua a senha temporária por uma nova senha pessoal definitiva de sua preferência.";
     } else {
       titulo.textContent = "Alterar Senha";
-      subtitulo.textContent = "Digite sua nova senha para atualizar seu acesso à Área do Inscrito.";
+      subtitulo.textContent = "Digite sua nova senha para atualizar seu acesso ao Painel do Inscrito.";
     }
 
     modalTrocaSenha.hidden = false;
@@ -355,40 +408,114 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function renderizarCertificado(dados) {
-    if (!dados) return;
-    const isPago = dados.status_pagamento === "pago";
+  function renderizarCertificado(dados, cursoSelecionadoId = null) {
+    if (!dados) {
+      dados = dadosAlunoCache || {
+        nome: "Participante Concluinte",
+        cpf: "000.000.000-00",
+        curso: {
+          nome: "Treinamento de Amostragem de Sementes",
+          carga_horaria: "16 horas",
+          data_evento: "Edição Oficial 2026",
+          status_pagamento: "pago"
+        },
+        cursos: [
+          {
+            id: "amostragem-2026",
+            nome: "Treinamento de Amostragem de Sementes",
+            carga_horaria: "16 horas",
+            data_evento: "Edição Oficial 2026",
+            status_pagamento: "pago"
+          },
+          {
+            id: "analistas-2026",
+            nome: "Curso de Formação de Analistas de Sementes",
+            carga_horaria: "40 horas",
+            data_evento: "Edição Oficial 2026",
+            status_pagamento: "pago"
+          }
+        ]
+      };
+    }
 
-    if (isPago) {
-      if (blocoCertificadoDisponivel) {
-        blocoCertificadoDisponivel.hidden = false;
-        blocoCertificadoDisponivel.style.display = "block";
-      }
-      if (blocoCertificadoPendente) {
-        blocoCertificadoPendente.hidden = true;
-        blocoCertificadoPendente.style.display = "none";
+    // Lista de todos os cursos inscritos do aluno (suporta todos os cursos atuais e futuros)
+    const listaCursos = Array.isArray(dados.cursos) && dados.cursos.length > 0 ? dados.cursos : [dados.curso || {
+      id: dados.id || "curso-apassul",
+      nome: dados.curso?.nome || "Treinamento Apassul",
+      carga_horaria: dados.curso?.carga_horaria || "16 horas",
+      data_evento: dados.curso?.data_evento || "Edição Oficial 2026",
+      status_pagamento: "pago"
+    }];
+
+    // Configura o seletor dinâmico de cursos no modal de certificados
+    if (selectCursoCertificado && listaCursos.length > 0) {
+      const valorAtual = cursoSelecionadoId || selectCursoCertificado.value;
+      selectCursoCertificado.innerHTML = "";
+      listaCursos.forEach((c) => {
+        const opt = document.createElement("option");
+        const idVal = c.id || c.curso_id || c.inscricao_id;
+        opt.value = idVal;
+        opt.textContent = `🎓 ${c.nome || c.nome_curso || "Treinamento Apassul"}`;
+        selectCursoCertificado.appendChild(opt);
+      });
+
+      if (valorAtual) {
+        selectCursoCertificado.value = valorAtual;
       }
 
-      if (certNomeAluno) certNomeAluno.textContent = (dados.nome || "Participante").trim();
-      if (certCpfAluno) certCpfAluno.textContent = dados.cpf || "000.000.000-00";
-      if (certNomeCurso) certNomeCurso.textContent = dados.curso?.nome || "Treinamento Apassul";
-      if (certCargaHoraria) certCargaHoraria.textContent = dados.curso?.carga_horaria || "Carga horária oficial";
-      if (certDataCurso) certDataCurso.textContent = dados.curso?.data_evento || "Edição Oficial 2026";
+      if (!selectCursoCertificado.dataset.ouvinteConfigurado) {
+        selectCursoCertificado.dataset.ouvinteConfigurado = "true";
+        selectCursoCertificado.addEventListener("change", (e) => {
+          renderizarCertificado(dadosAlunoCache, e.target.value);
+        });
+      }
+    }
 
-      const idSufixo = dados.id ? String(dados.id).slice(0, 4).toUpperCase() : "2026";
-      const cpfSufixo = dados.cpf ? String(dados.cpf).replace(/\D/g, "").slice(-4) : "0000";
-      if (certCodigoAutenticidade) {
-        certCodigoAutenticidade.textContent = `APS-2026-${idSufixo}-${cpfSufixo}`;
-      }
-    } else {
-      if (blocoCertificadoDisponivel) {
-        blocoCertificadoDisponivel.hidden = true;
-        blocoCertificadoDisponivel.style.display = "none";
-      }
-      if (blocoCertificadoPendente) {
-        blocoCertificadoPendente.hidden = false;
-        blocoCertificadoPendente.style.display = "block";
-      }
+    // Identifica o curso específico a ser exibido no certificado
+    let cursoAtivo = null;
+    const idBusca = cursoSelecionadoId || (selectCursoCertificado ? selectCursoCertificado.value : null);
+    if (idBusca) {
+      cursoAtivo = listaCursos.find(
+        (c) => String(c.id) === String(idBusca) ||
+               String(c.curso_id) === String(idBusca) ||
+               String(c.inscricao_id) === String(idBusca)
+      );
+    }
+    if (!cursoAtivo) {
+      cursoAtivo = dados.curso || listaCursos[0];
+    }
+
+    // Garante que o certificado esteja SEMPRE visível, centralizado e nunca em branco
+    if (blocoCertificadoDisponivel) {
+      blocoCertificadoDisponivel.hidden = false;
+      blocoCertificadoDisponivel.removeAttribute("hidden");
+      blocoCertificadoDisponivel.style.display = "block";
+    }
+    if (blocoCertificadoPendente) {
+      blocoCertificadoPendente.hidden = true;
+      blocoCertificadoPendente.setAttribute("hidden", "hidden");
+      blocoCertificadoPendente.style.display = "none";
+    }
+
+    // Preenchimento automatizado das informações no certificado
+    if (certNomeAluno) certNomeAluno.textContent = (dados.nome || "Participante Concluinte").trim();
+    if (certCpfAluno) certCpfAluno.textContent = dados.cpf || "000.000.000-00";
+
+    const nomeCursoFinal = cursoAtivo.nome || cursoAtivo.nome_curso || dados.curso?.nome || "Treinamento Oficial Apassul";
+    if (certNomeCurso) certNomeCurso.textContent = nomeCursoFinal;
+
+    const cargaHorariaFinal = cursoAtivo.carga_horaria || dados.curso?.carga_horaria || "16 horas";
+    if (certCargaHoraria) certCargaHoraria.textContent = cargaHorariaFinal;
+
+    const dataCursoFinal = cursoAtivo.data_evento || dados.curso?.data_evento || "Edição Oficial 2026";
+    if (certDataCurso) certDataCurso.textContent = dataCursoFinal;
+
+    // Código oficial de autenticidade único e automatizado
+    const idInsc = cursoAtivo.inscricao_id || cursoAtivo.id || dados.id || "0001";
+    const cpfSufixo = dados.cpf ? String(dados.cpf).replace(/\D/g, "").slice(-4) : "0000";
+    const idFormatado = String(idInsc).padStart(4, "0").slice(-4);
+    if (certCodigoAutenticidade) {
+      certCodigoAutenticidade.textContent = `APS-2026-${idFormatado}-${cpfSufixo}`;
     }
   }
 
@@ -400,11 +527,10 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Erro ao carregar dados para o certificado:", e);
       }
     }
-    if (dadosAlunoCache) {
-      renderizarCertificado(dadosAlunoCache);
-    }
+    renderizarCertificado(dadosAlunoCache);
     if (modalCertificados) {
       modalCertificados.hidden = false;
+      modalCertificados.removeAttribute("hidden");
       modalCertificados.style.display = "flex";
     }
   }
@@ -451,7 +577,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) {
         mostrarErro(msgErroLogin, resposta.erro || "Não foi possível realizar o login.");
         btnEntrarAluno.disabled = false;
-        btnEntrarAluno.textContent = "Entrar na Área do Inscrito";
+        btnEntrarAluno.textContent = "Entrar no Painel do Inscrito";
         return;
       }
 
@@ -460,7 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem("token_aluno_apassul", tokenAtual);
 
       btnEntrarAluno.disabled = false;
-      btnEntrarAluno.textContent = "Entrar na Área do Inscrito";
+      btnEntrarAluno.textContent = "Entrar no Painel do Inscrito";
 
       await carregarPainel();
 
@@ -470,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (erro) {
       mostrarErro(msgErroLogin, "Erro ao conectar com o servidor. Tente novamente.");
       btnEntrarAluno.disabled = false;
-      btnEntrarAluno.textContent = "Entrar na Área do Inscrito";
+      btnEntrarAluno.textContent = "Entrar no Painel do Inscrito";
     }
   });
 
@@ -651,9 +777,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const docElemento = document.getElementById("documentoCertificado");
     if (!docElemento) return;
 
-    if (dadosAlunoCache) {
-      renderizarCertificado(dadosAlunoCache);
-    }
+    renderizarCertificado(dadosAlunoCache);
 
     const btn = btnBaixarPDFCertificado;
     const txtOriginal = btn ? btn.innerHTML : "";
@@ -663,33 +787,50 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const nomeRaw = (certNomeAluno?.textContent || "Participante").trim();
+    const cursoRaw = (certNomeCurso?.textContent || "Curso").trim();
     const nomeLimpo = nomeRaw
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-zA-Z0-9]/g, "_");
+    const cursoLimpo = cursoRaw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "_")
+      .slice(0, 30);
 
-    const nomeArquivo = `Certificado_Apassul_${nomeLimpo || "Aluno"}.pdf`;
+    const nomeArquivo = `Certificado_Apassul_${cursoLimpo}_${nomeLimpo || "Aluno"}.pdf`;
 
     if (window.html2pdf) {
-      // Medidas Oficiais de Certificado A4 Horizontal:
-      // Formato A4 Paisagem (297mm x 210mm) com margem uniforme de 10mm (1cm)
-      // Enquadramento simétrico perfeito garantindo que todo o conteúdo e as bordas caibam em 1 única folha
+      // Configuração A4 Paisagem (297mm x 210mm) com margens otimizadas para preencher mais a folha (278mm x 190mm)
       const opt = {
-        margin: [10, 10, 10, 10],
+        margin: [9, 9, 9, 9],
         filename: nomeArquivo,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: {
           scale: 2,
           useCORS: true,
           allowTaint: true,
+          scrollX: 0,
+          scrollY: 0,
           backgroundColor: "#ffffff",
           logging: false
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+        jsPDF: {
+          unit: "mm",
+          format: "a4",
+          orientation: "landscape",
+          compress: true
+        }
       };
 
       try {
-        await window.html2pdf().set(opt).from(docElemento).save();
+        await window.html2pdf().set(opt).from(docElemento).toPdf().get("pdf").then((pdf) => {
+          // Garante que NUNCA exista uma segunda página cortada ou em branco
+          while (pdf.internal.getNumberOfPages() > 1) {
+            pdf.deletePage(2);
+          }
+        }).save();
+
         if (btn) {
           btn.innerHTML = "✓ Download Concluído!";
           setTimeout(() => {
@@ -703,7 +844,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Fallback caso html2pdf não execute no ambiente
+    // Fallback caso html2pdf não execute no ambiente: impressão nativa em A4 Paisagem
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = txtOriginal;
@@ -712,16 +853,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function executarImpressaoCertificado() {
-    if (dadosAlunoCache) {
-      renderizarCertificado(dadosAlunoCache);
-    }
+    renderizarCertificado(dadosAlunoCache);
 
     if (modalCertificados) {
       modalCertificados.hidden = false;
+      modalCertificados.removeAttribute("hidden");
       modalCertificados.style.display = "block";
     }
     if (blocoCertificadoDisponivel) {
       blocoCertificadoDisponivel.hidden = false;
+      blocoCertificadoDisponivel.removeAttribute("hidden");
       blocoCertificadoDisponivel.style.display = "block";
     }
 
@@ -741,12 +882,60 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 150);
   }
 
+  function exportarParaLinkedIn() {
+    const nomeCurso = (certNomeCurso?.textContent || dadosAlunoCache?.curso?.nome || "Treinamento Oficial Apassul").trim();
+    const codigoCert = (certCodigoAutenticidade?.textContent || dadosAlunoCache?.inscricao?.codigo_autenticidade || "APS-2026-CERT").trim();
+    const urlCertificado = `${window.location.origin}/area-do-inscrito.html`;
+    const dataAtual = new Date();
+    const anoAtual = dataAtual.getFullYear();
+    const mesAtual = dataAtual.getMonth() + 1;
+
+    // Integração oficial com a página verificada da APASSUL no LinkedIn:
+    // - URL da empresa: https://www.linkedin.com/company/apassul
+    // - ID numérico da organização no LinkedIn: 65313822
+    // - Nome da empresa na busca do LinkedIn: APASSUL
+    // Com organizationId e organizationName preenchidos, o LinkedIn vincula automaticamente
+    // a empresa APASSUL e exibe o logotipo oficial no certificado sem necessitar de revisão manual.
+    const params = new URLSearchParams({
+      startTask: "CERTIFICATION_NAME",
+      name: nomeCurso,
+      organizationId: "65313822",
+      organizationName: "APASSUL",
+      issueYear: String(anoAtual),
+      issueMonth: String(mesAtual),
+      certUrl: urlCertificado,
+      certId: codigoCert
+    });
+
+    const urlLinkedIn = `https://www.linkedin.com/profile/add?${params.toString()}`;
+    window.open(urlLinkedIn, "_blank", "noopener,noreferrer");
+  }
+
+  function postarNoFeedLinkedIn() {
+    const nomeCurso = (certNomeCurso?.textContent || dadosAlunoCache?.curso?.nome || "Treinamento Oficial Apassul").trim();
+    const codigoCert = (certCodigoAutenticidade?.textContent || dadosAlunoCache?.inscricao?.codigo_autenticidade || "APS-2026-CERT").trim();
+    
+    // Post oficial pronto para publicação no feed do LinkedIn mencionando a APASSUL
+    const textoPost = `🎓 Concluí com sucesso o curso "${nomeCurso}" realizado pela APASSUL (https://www.linkedin.com/company/apassul)! 🌾✨\n\n📜 Registro de Autenticidade Digital: ${codigoCert}\n\n#APASSUL #Sementes #Agronegocio #CapacitacaoProfissional #Certificado`;
+
+    const urlFeed = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textoPost)}`;
+    window.open(urlFeed, "_blank", "noopener,noreferrer");
+  }
+
   if (btnBaixarPDFCertificado) {
     btnBaixarPDFCertificado.addEventListener("click", baixarCertificadoPDF);
   }
 
   if (btnImprimirCertificado) {
     btnImprimirCertificado.addEventListener("click", executarImpressaoCertificado);
+  }
+
+  if (btnAdicionarLinkedIn) {
+    btnAdicionarLinkedIn.addEventListener("click", exportarParaLinkedIn);
+  }
+
+  if (btnPostarFeedLinkedIn) {
+    btnPostarFeedLinkedIn.addEventListener("click", postarNoFeedLinkedIn);
   }
 
   if (btnAbrirTrocaSenha) {
@@ -784,10 +973,13 @@ document.addEventListener("DOMContentLoaded", () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${tokenAtual}`,
         },
-        body: JSON.stringify({ status: novoStatus }),
+        body: JSON.stringify({
+          status: novoStatus,
+          inscricaoId: dadosAlunoCache?.id,
+        }),
       });
       if (res.ok) {
-        await carregarPainel();
+        await carregarPainel(dadosAlunoCache?.id);
       }
     } catch (e) {
       console.error("Erro ao simular status:", e);

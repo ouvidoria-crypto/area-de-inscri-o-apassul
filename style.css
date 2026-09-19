@@ -1240,3 +1240,320 @@ button.btn-limpar-data:hover {
   font-size: 13px;
   color: #7a5800;
 }
+
+/* Destaque visual para campos com pendência no formulário */
+.campo-invalido,
+.select-botao.campo-invalido,
+input.campo-invalido,
+fieldset.campo-invalido {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Botão oficial Adicionar ao LinkedIn no modal de certificado */
+.btn-linkedin-aluno {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #0a66c2;
+  color: #ffffff !important;
+  border: 1.5px solid #0a66c2;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.btn-linkedin-aluno:hover {
+  background-color: #004182;
+  border-color: #004182;
+  color: #ffffff !important;
+}
+
+.btn-linkedin-aluno:active {
+  transform: translateY(1px);
+}
+
+.btn-linkedin-aluno svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Botão oficial Publicar Conquista no Feed do LinkedIn */
+.btn-linkedin-feed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #004182;
+  color: #ffffff !important;
+  border: 1.5px solid #004182;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.btn-linkedin-feed:hover {
+  background-color: #002d5c;
+  border-color: #002d5c;
+  color: #ffffff !important;
+}
+
+.btn-linkedin-feed:active {
+  transform: translateY(1px);
+}
+
+.btn-linkedin-feed svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   MÓDULO DE RECONHECIMENTO DE CADASTRO E LOGIN UNIFICADO NA INSCRIÇÃO
+   ========================================================================== */
+.modulo-login-unificado {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  animation: entradaSuave 0.3s ease;
+}
+
+.modulo-login-conteudo {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.modulo-login-icone {
+  background: #2e6b3e;
+  color: #ffffff;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modulo-login-textos {
+  flex: 1;
+}
+
+.modulo-login-textos strong {
+  display: block;
+  font-size: 16px;
+  color: #166534;
+  margin-bottom: 4px;
+}
+
+.modulo-login-textos p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.modulo-login-acoes-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.campo-senha-inline-wrap {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.input-senha-inline {
+  flex: 1;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: 1.5px solid #94a3b8;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-senha-inline:focus {
+  border-color: #2e6b3e;
+  box-shadow: 0 0 0 3px rgba(46, 107, 62, 0.15);
+}
+
+.btn-entrar-inline {
+  background: #2e6b3e;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.btn-entrar-inline:hover {
+  background: #245632;
+}
+
+.erro-login-inline {
+  font-size: 13px;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+/* Banner de confirmação de dados carregados */
+#bannerDadosCarregados,
+.banner-dados-carregados {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border: 1px solid #86efac;
+  border-left: 4px solid #16a34a;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
+  animation: entradaSuave 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.banner-dados-conteudo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.banner-dados-icone-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #bbf7d0;
+}
+
+.banner-dados-textos {
+  flex: 1;
+}
+
+.banner-dados-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+#bannerDadosCarregados strong#textoBoasVindasInscricao,
+.banner-dados-textos strong {
+  display: inline-block;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #14532d;
+  letter-spacing: -0.2px;
+}
+
+.badge-cadastro-ativo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+#bannerDadosCarregados p,
+.banner-dados-conteudo p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+#containerCursosJaInscritos {
+  display: none !important;
+}
+
+.banner-dados-acoes-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-deslogar-banner {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-deslogar-banner:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.btn-cancelar-login-inline {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 0;
+  margin-top: 6px;
+  display: inline-block;
+  transition: color 0.15s ease;
+}
+
+.btn-cancelar-login-inline:hover {
+  color: #b91c1c;
+}
+
