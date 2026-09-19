@@ -1,3 +1,8 @@
+/* Regra global para garantir que elementos com o atributo hidden fiquem ocultos */
+[hidden] {
+  display: none !important;
+}
+
 /* Cada bloco abaixo é uma "regra": seletor { propriedade: valor; } */
 
 body {
@@ -88,7 +93,8 @@ label {
 /* Estilo padronizado para caixas de texto (inputs) */
 input[type="text"],
 input[type="email"],
-input[type="tel"] {
+input[type="tel"],
+input[type="password"] {
   width: 100%;
   padding: 10px 12px;
   margin-top: 4px;
@@ -96,6 +102,17 @@ input[type="tel"] {
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: #2e6b3e;
+  box-shadow: 0 0 0 2px rgba(46, 107, 62, 0.2);
 }
 
 /* Menu personalizado (Curso e Empresa), no lugar do <select> nativo do
@@ -410,27 +427,122 @@ button:hover {
   flex: 1;
 }
 
+.btn-aluno-acao,
+.btn-primario-padrao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #2e6b3e;
+  color: #ffffff !important;
+  border: 1.5px solid #2e6b3e;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.btn-aluno-acao:hover,
+.btn-primario-padrao:hover {
+  background-color: #245230;
+  border-color: #245230;
+  color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-aluno-acao:active,
+.btn-primario-padrao:active {
+  transform: translateY(1px);
+}
+
+.btn-secundario-aluno,
+.btn-secundario-padrao,
 .btn-secundario {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background-color: #ffffff;
-  color: #2e6b3e;
-  border: 2px solid #2e6b3e;
-  padding: 8px 14px;
-  border-radius: 4px;
+  color: #334155 !important;
+  border: 1.5px solid #cbd5e1;
+  padding: 10px 18px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
+  line-height: 1.4;
   white-space: nowrap;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
 }
 
+.btn-secundario-aluno:hover,
+.btn-secundario-padrao:hover,
 .btn-secundario:hover,
-.btn-secundario:active,
+.btn-secundario-aluno:focus-visible,
+.btn-secundario-padrao:focus-visible,
 .btn-secundario:focus-visible {
-  background-color: #2e6b3e;
-  color: #ffffff;
+  background-color: #2e6b3e !important;
+  border-color: #2e6b3e !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(46, 107, 62, 0.25);
+}
+
+.btn-secundario-aluno:hover *,
+.btn-secundario-padrao:hover *,
+.btn-secundario:hover * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.btn-secundario-aluno:active,
+.btn-secundario-padrao:active,
+.btn-secundario:active {
+  transform: translateY(1px);
+}
+
+.btn-fechar-modal-x {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  background-color: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  font-size: 22px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  z-index: 10;
+}
+
+.btn-fechar-modal-x:hover,
+.btn-fechar-modal-x:focus-visible {
+  background-color: #2e6b3e !important;
+  border-color: #2e6b3e !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(46, 107, 62, 0.25);
+}
+
+.btn-fechar-modal-x:active {
+  transform: translateY(1px);
 }
 
 .icone-csv {
@@ -607,10 +719,24 @@ a.link-voltar {
   padding: 12px 24px;
 }
 
-/* Estilo para links de e-mail */
-.link-email {
-  color: #0066cc;
-  text-decoration: underline;
+/* Estilo padronizado para links de e-mail */
+a[href^="mailto:"]:not(.item-nav-btn),
+.link-email,
+a.link-email {
+  color: #0066cc !important;
+  text-decoration: underline !important;
+  cursor: pointer;
+  word-break: break-all;
+  font-weight: 500;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+a[href^="mailto:"]:not(.item-nav-btn):hover,
+.link-email:hover,
+a.link-email:hover {
+  color: #004499 !important;
+  text-decoration: underline !important;
+  opacity: 0.85;
 }
 
 /* Balão de erro de validação: reproduz o aviso nativo do navegador (aquele
@@ -935,7 +1061,11 @@ button.btn-limpar-data:hover {
     align-items: stretch;
   }
 
-  .btn-secundario {
+  .btn-secundario,
+  .btn-secundario-aluno,
+  .btn-aluno-acao,
+  .btn-primario-padrao,
+  .btn-secundario-padrao {
     justify-content: center;
   }
 

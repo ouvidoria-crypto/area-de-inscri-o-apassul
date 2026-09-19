@@ -23,50 +23,49 @@
       </svg>
     </div>
 
-    <h1 id="tituloSucesso">Inscrição realizada com sucesso</h1>
+    <h1 id="tituloSucesso">Inscrição Confirmada</h1>
 
     <div id="detalhesInscricaoBox" class="detalhes-inscricao-confirmada" hidden>
       <p id="linhaCurso"><strong>Curso:</strong> <span id="spanCurso">-</span></p>
       <p id="linhaValor"><strong>Valor do investimento:</strong> <span id="spanValor">R$ 3.200,00</span></p>
       <p id="linhaMetodo"><strong>Forma de pagamento:</strong> <span id="spanMetodo">-</span></p>
-      <p id="linhaStatus"><strong>Status do pagamento:</strong> <span id="badgeStatus" class="badge-status pendente">Pendente</span></p>
+      <p id="linhaStatus"><strong>Status:</strong> <span id="badgeStatus" class="badge-status pago">PAGO / CONFIRMADO (TESTE)</span></p>
     </div>
 
     <p id="textoPrincipal">
-      Sua inscrição foi registrada com sucesso! Enviamos um e-mail com os seus dados de acesso (<strong>Login</strong> e <strong>Senha Provisória</strong>) para o endereço:
+      Sua inscrição foi confirmada com sucesso! O acesso ao curso foi liberado e as credenciais foram enviadas para:
       <br><strong id="emailParticipante" style="color: #2e6b3e; font-size: 16px;">o e-mail cadastrado</strong>.
     </p>
 
-    <div id="blocoAcessoAluno" style="margin: 20px 0; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 18px; border-radius: 8px; text-align: center;">
-      <p style="margin: 0 0 6px; color: #166534; font-size: 15px; font-weight: 600;">
-        ✉️ Dados de Acesso Enviados ao seu E-mail
+    <!-- Caixa de Credenciais (Login e Senha) para Teste Imediato -->
+    <div id="blocoCredenciaisTeste" style="margin: 22px 0; background: #ffffff; border: 2px solid #2e6b3e; border-radius: 10px; padding: 22px; text-align: center; box-shadow: 0 4px 12px rgba(46,107,62,0.1);">
+      <div style="display: inline-block; background: #eaf5ec; color: #2e6b3e; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
+        🧪 Modo de Teste: Acesso Liberado Imediatamente
+      </div>
+      <p style="margin: 0 0 14px; font-size: 14px; color: #334155;">
+        Utilize os dados abaixo ou acesse o link enviado para sua caixa de entrada:
       </p>
-      <p style="margin: 0 0 14px; color: #14532d; font-size: 13px; line-height: 1.5;">
-        Acesse a Área do Inscrito utilizando seu e-mail e a senha provisória de 8 caracteres recebida para definir sua senha pessoal e acompanhar seu curso.
-      </p>
-      <a href="/area-do-inscrito.html" class="btn-mp-checkout" style="background-color: #2e6b3e; text-decoration: none; display: inline-block; padding: 12px 28px; font-weight: 700;">
-        🎓 Ir para o Login da Área do Inscrito →
-      </a>
-    </div>
 
-    <div id="blocoAcaoMP" class="bloco-mp-acao" hidden>
-      <p>Você pode abrir ou concluir seu pagamento a qualquer momento pelo Mercado Pago:</p>
-      <a id="btnIrMP" class="btn-mp-checkout" href="#" target="_blank" rel="noopener noreferrer">
-        Pagar com Mercado Pago (Pix / Boleto)
-      </a>
-    </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; max-width: 380px; margin: 0 auto; text-align: left; background: #f8fafc; padding: 14px 18px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+        <div>
+          <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Login (Seu E-mail):</span>
+          <div id="credencialLogin" style="font-weight: 600; color: #0f172a; word-break: break-all; font-size: 15px;">-</div>
+        </div>
+        <div>
+          <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Senha de Acesso (Alfanumérica):</span>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+            <span id="credencialSenha" style="font-family: monospace; font-size: 18px; font-weight: 700; color: #2e6b3e; letter-spacing: 1px; background: #ffffff; padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1;">-</span>
+            <button id="btnCopiarSenha" type="button" style="background: #e2e8f0; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; color: #334155;">Copiar</button>
+          </div>
+        </div>
+      </div>
 
-    <div id="avisoTokenMP" class="aviso-token-mp" hidden>
-      <p>
-        ℹ️ <strong>Nota de Configuração:</strong> O checkout com o Mercado Pago está integrado.
-        Para redirecionamento em produção, insira suas credenciais (Access Token) nas variáveis de ambiente.
-      </p>
+      <div style="margin-top: 18px;">
+        <a id="btnIrAreaAluno" href="/area-do-inscrito.html" class="btn-mp-checkout" style="background-color: #2e6b3e; text-decoration: none; display: inline-block; padding: 13px 30px; font-weight: 700; font-size: 15px; border-radius: 8px;">
+          🎓 Entrar na Área do Inscrito →
+        </a>
+      </div>
     </div>
-
-    <p class="texto-complementar">
-      A efetivação da inscrição ocorre após a confirmação do pagamento no Mercado Pago
-      ou recebimento do comprovante, conforme os termos e condições apresentados.
-    </p>
 
     <a class="botao-enviar pronto link-voltar" href="/">Voltar à área de inscrição</a>
   </section>
@@ -74,22 +73,37 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const id = params.get("id") || sessionStorage.getItem("inscricaoId");
-    const statusURL = params.get("status");
-    const avisoURL = params.get("aviso");
     const emailGuardado = sessionStorage.getItem("emailParticipante");
+    const senhaGuardada = sessionStorage.getItem("senhaTemporaria");
 
     const destinoEmail = document.getElementById("emailParticipante");
+    const credencialLogin = document.getElementById("credencialLogin");
+    const credencialSenha = document.getElementById("credencialSenha");
+    const btnCopiarSenha = document.getElementById("btnCopiarSenha");
+    const btnIrAreaAluno = document.getElementById("btnIrAreaAluno");
+
     if (emailGuardado) {
       destinoEmail.textContent = emailGuardado;
+      credencialLogin.textContent = emailGuardado;
+      btnIrAreaAluno.href = `/area-do-inscrito.html?email=${encodeURIComponent(emailGuardado)}`;
+    }
+    if (senhaGuardada) {
+      credencialSenha.textContent = senhaGuardada;
     }
 
-    if (avisoURL === "mp_token_pendente") {
-      document.getElementById("avisoTokenMP").hidden = false;
-    }
+    btnCopiarSenha.addEventListener("click", () => {
+      const txt = credencialSenha.textContent;
+      if (txt && txt !== "-") {
+        navigator.clipboard.writeText(txt).then(() => {
+          btnCopiarSenha.textContent = "Copiado!";
+          setTimeout(() => { btnCopiarSenha.textContent = "Copiar"; }, 2000);
+        });
+      }
+    });
 
     const nomesMetodo = {
-      pix: "Pix (Mercado Pago)",
-      boleto: "Boleto Bancário (Mercado Pago)",
+      pix: "Pix",
+      boleto: "Boleto Bancário",
       deposito: "Depósito Bancário",
     };
 
@@ -103,30 +117,22 @@
           box.hidden = false;
 
           document.getElementById("spanCurso").textContent = dados.nome_curso || "-";
-          if (dados.email) destinoEmail.textContent = dados.email;
+          if (dados.email) {
+            destinoEmail.textContent = dados.email;
+            credencialLogin.textContent = dados.email;
+            btnIrAreaAluno.href = `/area-do-inscrito.html?email=${encodeURIComponent(dados.email)}`;
+          }
+
+          if (dados.senha_plana_inicial) {
+            credencialSenha.textContent = dados.senha_plana_inicial;
+          }
 
           let metodoTexto = nomesMetodo[dados.metodo_pagamento] || dados.metodo_pagamento;
-          if (dados.vencimento_boleto) {
-            metodoTexto += " (Vencimento: " + dados.vencimento_boleto + ")";
-          }
           document.getElementById("spanMetodo").textContent = metodoTexto;
 
           const badge = document.getElementById("badgeStatus");
-          const statusAtual = statusURL === "aprovado" ? "pago" : (dados.status_pagamento || "pendente");
-          badge.textContent = statusAtual === "pago" ? "PAGO / CONFIRMADO" : "AGUARDANDO PAGAMENTO";
-          badge.className = "badge-status " + (statusAtual === "pago" ? "pago" : "pendente");
-
-          if (statusAtual === "pago" || statusURL === "aprovado") {
-            document.getElementById("tituloSucesso").textContent = "Pagamento Confirmado!";
-            document.getElementById("textoPrincipal").innerHTML =
-              "Seu pagamento foi confirmado com sucesso. O login e a senha de acesso ao treinamento serão enviados para <strong>" +
-              (dados.email || destinoEmail.textContent) + "</strong>.";
-          } else if (dados.mp_init_point && (dados.metodo_pagamento === "pix" || dados.metodo_pagamento === "boleto")) {
-            const blocoMP = document.getElementById("blocoAcaoMP");
-            const btnMP = document.getElementById("btnIrMP");
-            btnMP.href = dados.mp_init_point;
-            blocoMP.hidden = false;
-          }
+          badge.textContent = "PAGO / LIBERADO (TESTE)";
+          badge.className = "badge-status pago";
         })
         .catch(console.error);
     }

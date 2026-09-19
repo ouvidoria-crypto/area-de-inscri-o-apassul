@@ -4,53 +4,534 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Área do Inscrito - Apassul</title>
+  <meta name="description" content="Portal oficial do aluno e participante dos treinamentos da Apassul">
+  <meta property="og:title" content="Área do Inscrito - Apassul">
+  <meta property="og:description" content="Portal oficial do aluno e participante dos treinamentos da Apassul">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Estilos específicos da Área do Inscrito */
-    .pagina-aluno {
-      max-width: 900px;
-      margin: 30px auto;
-      padding: 0 20px 60px;
+    /* ==========================================================
+       ESTILOS DO NOVO LAYOUT DA ÁREA DO INSCRITO (ESTILO YOUTUBE)
+       ========================================================== */
+    body.pagina-inscrito-app {
+      margin: 0;
+      padding: 0;
+      max-width: 100% !important;
+      width: 100%;
+      background-color: #f8faf9;
+      color: #1e293b;
+      font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow-x: hidden;
     }
-    .cabecalho-aluno {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 0 24px;
+
+    /* BARRA HORIZONTAL CONGELADA NO TOPO (Acompanha a rolagem) */
+    .topbar-congelada {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: #ffffff;
       border-bottom: 1px solid #e2e8f0;
-      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1000;
+      box-sizing: border-box;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      transition: box-shadow 0.2s ease;
     }
-    .logo-aluno {
-      max-height: 50px;
-      width: auto;
+    .topbar-congelada.comprimida {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     }
-    .link-voltar-topo {
-      color: #2e6b3e;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
+
+    /* ==========================================================
+       ESTILOS DE ESTADOS: NÃO LOGADO VS LOGADO
+       ========================================================== */
+
+    /* ESTADO NÃO LOGADO (ANTES DO LOGON):
+       - A barra lateral NÃO aparece
+       - As três barrinhas NÃO aparecem
+       - A logo da Apassul fica ao CENTRO juntamente com "Área do Inscrito"
+       - O conteúdo fica centralizado na tela */
+    body.usuario-deslogado #sidebarYoutube,
+    body.usuario-deslogado #btnToggleSidebar,
+    body.usuario-deslogado #overlaySidebarBackdrop {
+      display: none !important;
+    }
+
+    body.usuario-deslogado .topbar-congelada {
+      justify-content: center;
+      position: fixed;
+    }
+
+    body.usuario-deslogado .topbar-esquerda {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    body.usuario-deslogado .bloco-marca-apassul {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    body.usuario-deslogado .topbar-direita {
+      position: absolute;
+      right: 20px;
+    }
+
+    body.usuario-deslogado .conteudo-principal-app {
+      margin-left: 0 !important;
+      padding: 40px 16px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: calc(100vh - 64px);
+    }
+
+    body.usuario-deslogado .secao-login-wrapper {
+      margin: 20px auto 0;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    body.usuario-deslogado .card-login-aluno {
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    /* ESTADO LOGADO (A PARTIR DO LOGON):
+       - As 3 barrinhas aparecem à esquerda
+       - A logo e a tag ficam alinhadas à esquerda
+       - A barra lateral tipo YouTube fica ativa */
+    body.usuario-logado .topbar-congelada {
+      justify-content: space-between;
+    }
+
+    body.usuario-logado .topbar-esquerda {
+      position: static;
+      transform: none;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    body.usuario-logado .bloco-marca-apassul {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    body.usuario-logado #btnToggleSidebar {
+      display: inline-flex !important;
+    }
+
+    body.usuario-logado #sidebarYoutube {
+      display: flex !important;
+    }
+
+    .bloco-marca-apassul {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Botão das 3 barrinhas (Hambúrguer estilo YouTube) */
+    .btn-menu-hamburguer {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      color: #1e293b;
+      padding: 0;
+      transition: background-color 0.15s ease, transform 0.1s ease;
     }
-    .link-voltar-topo:hover {
-      text-decoration: underline;
+    .btn-menu-hamburguer:hover {
+      background-color: #f1f5f9;
+    }
+    .btn-menu-hamburguer:active {
+      transform: scale(0.95);
+    }
+    .icone-hamburguer {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Logo da Apassul na barra superior */
+    .link-logo-topbar {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      height: 100%;
+    }
+    .logo-apassul-topbar {
+      height: 38px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+      transition: opacity 0.2s;
+    }
+    .logo-apassul-topbar:hover {
+      opacity: 0.9;
+    }
+    .tag-area-portal {
+      font-size: 13px;
+      font-weight: 700;
+      color: #2e6b3e;
+      background: #eaf5ec;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-left: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .topbar-direita {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* LAYOUT PRINCIPAL: SIDEBAR + CONTEÚDO */
+    .app-container {
+      display: flex;
+      min-height: calc(100vh - 64px);
+      margin-top: 64px; /* Espaço da barra congelada */
+      position: relative;
+    }
+
+    /* BARRA LATERAL (SIDEBAR TIPO YOUTUBE) */
+    .sidebar-youtube {
+      width: 250px;
+      background-color: #ffffff;
+      border-right: 1px solid #e2e8f0;
+      position: fixed;
+      top: 64px;
+      bottom: 0;
+      left: 0;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.3s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.9, 0.2, 1);
+      box-sizing: border-box;
+      padding: 14px 10px 24px;
+    }
+
+    /* ESTADO FECHADO/RECOLHIDO: MANTÉM APENAS OS ÍCONES */
+    .sidebar-youtube.recolhida {
+      width: 68px;
+      padding: 14px 8px;
+    }
+
+    /* Títulos das seções da navegação */
+    .nav-secao-titulo {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 12px 12px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      opacity: 1;
+      transform: translateX(0);
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0.05s,
+                  transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s;
+    }
+    .sidebar-youtube.recolhida .nav-secao-titulo {
+      opacity: 0;
+      transform: translateX(-24px);
+      height: 0;
+      padding: 0;
+      margin: 0;
+      pointer-events: none;
+      visibility: hidden;
+    }
+
+    .lista-nav-sidebar {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-nav-btn {
+      width: 100%;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 12px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      color: #334155;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      text-decoration: none;
+      box-sizing: border-box;
+      transition: background-color 0.15s, color 0.15s;
+      white-space: nowrap;
+      position: relative;
+    }
+    .item-nav-btn:hover {
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+    .item-nav-btn.ativo {
+      background-color: #eaf5ec;
+      color: #2e6b3e;
+      font-weight: 700;
+    }
+
+    /* Ícone permanece estável e perfeitamente centralizado */
+    .item-nav-icone {
+      font-size: 20px;
+      line-height: 1;
+      width: 28px;
+      min-width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+
+    /* Texto do nome: na abertura surge suavemente deslizando da esquerda para a direita */
+    .item-nav-texto {
+      display: inline-block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 700;
+      opacity: 1;
+      transform: translateX(0);
+      /* Efeito suave da esquerda para a direita ao abrir a barra lateral */
+      transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1) 0.08s,
+                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.08s;
+    }
+
+    /* Na barra lateral fechada: apenas os ícones permanecem visíveis */
+    .sidebar-youtube.recolhida .item-nav-btn {
+      padding: 0;
+      justify-content: center;
+      gap: 0;
+    }
+    .sidebar-youtube.recolhida .item-nav-icone {
+      margin: 0 auto;
+    }
+    .sidebar-youtube.recolhida .item-nav-texto {
+      opacity: 0;
+      transform: translateX(-24px); /* Posição à esquerda quando fechada */
+      width: 0;
+      max-width: 0;
+      pointer-events: none;
+      margin: 0;
+      visibility: hidden;
+      transition: opacity 0.12s ease-out,
+                  transform 0.12s ease-out;
+    }
+
+    .sidebar-divisor {
+      height: 1px;
+      background-color: #f1f5f9;
+      margin: 10px 6px;
+      transition: margin 0.3s ease;
+    }
+    .sidebar-youtube.recolhida .sidebar-divisor {
+      margin: 8px 4px;
+    }
+
+    /* MARCA NO RODAPÉ DA BARRA LATERAL:
+       - Link direto para https://apassul.com.br
+       - Quando a barra está aberta: exibe a logo completa (mesma da barra superior)
+       - Quando a barra está recolhida: exibe o favicon da Apassul centralizado */
+    .rodape-sidebar-marca {
+      margin-top: auto;
+      padding: 16px 12px 12px;
+      border-top: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      min-height: 58px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: padding 0.3s cubic-bezier(0.2, 0.9, 0.2, 1), background-color 0.15s ease;
+      border-radius: 8px;
+    }
+    .rodape-sidebar-marca:hover {
+      background-color: #f8fafc;
+    }
+
+    .logo-sidebar-completa {
+      display: block;
+      height: 36px;
+      max-width: 100%;
+      object-fit: contain;
+      opacity: 1;
+      transform: scale(1);
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .rodape-sidebar-marca:hover .logo-sidebar-completa {
+      opacity: 0.9;
+    }
+
+    .logo-sidebar-favicon {
+      display: none;
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      border-radius: 6px;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .rodape-sidebar-marca:hover .logo-sidebar-favicon {
+      transform: scale(1.08);
+    }
+
+    /* ESTADO RECOLHIDO (BARRA FECHADA): FAVICON ATIVO */
+    .sidebar-youtube.recolhida .rodape-sidebar-marca {
+      padding: 12px 6px 10px;
+    }
+
+    .sidebar-youtube.recolhida .logo-sidebar-completa {
+      display: none !important;
+      opacity: 0;
+    }
+
+    .sidebar-youtube.recolhida .logo-sidebar-favicon {
+      display: block !important;
+      opacity: 1;
+      transform: scale(1);
+      margin: 0 auto;
+    }
+
+    /* ÁREA DO CONTEÚDO PRINCIPAL */
+    .conteudo-principal-app {
+      flex: 1;
+      margin-left: 250px; /* Alinha ao lado da sidebar aberta */
+      padding: 28px 32px 60px;
+      min-width: 0;
+      box-sizing: border-box;
+      transition: margin-left 0.3s cubic-bezier(0.2, 0.9, 0.2, 1);
+    }
+    .conteudo-principal-app.expandido {
+      margin-left: 68px; /* Alinha ao lado da sidebar recolhida com apenas ícones */
+    }
+
+    /* OVERLAY PARA TELAS MOBILE */
+    .overlay-sidebar-backdrop {
+      display: none;
+      position: fixed;
+      top: 64px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.4);
+      z-index: 850;
+      backdrop-filter: blur(2px);
+    }
+    .overlay-sidebar-backdrop.visivel {
+      display: block;
+    }
+
+    /* CARDS E BLOCOS INTERNOS */
+    .secao-login-wrapper {
+      width: 100%;
+      max-width: 480px;
+      margin: 30px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
     .card-login-aluno {
       background: #ffffff;
       border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 36px 32px;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-      max-width: 480px;
-      margin: 40px auto;
+      border-radius: 14px;
+      padding: 38px 34px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .card-ajuda-login {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px 26px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .cabecalho-ajuda-login {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .cabecalho-ajuda-login strong {
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .texto-ajuda-login {
+      margin: 0 0 10px;
+      color: #475569;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    .suporte-ajuda-login {
+      margin: 0;
+      padding-top: 10px;
+      border-top: 1px solid #f1f5f9;
+      color: #475569;
+      font-size: 13.5px;
+      line-height: 1.55;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
     }
     .titulo-aluno {
       color: #2e6b3e;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 700;
       margin: 0 0 8px;
     }
@@ -60,127 +541,91 @@
       line-height: 1.5;
       margin: 0 0 24px;
     }
-    .grupo-campo {
-      margin-bottom: 20px;
-    }
-    .grupo-campo label {
-      display: block;
-      font-weight: 600;
-      font-size: 14px;
-      color: #334155;
-      margin-bottom: 6px;
-    }
-    .grupo-campo input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      font-size: 15px;
-      box-sizing: border-box;
-      font-family: inherit;
-    }
-    .grupo-campo input:focus {
-      border-color: #2e6b3e;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(46,107,62,0.15);
-    }
-    .btn-aluno-acao {
-      width: 100%;
-      background-color: #2e6b3e;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 14px 20px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .btn-aluno-acao:hover {
-      background-color: #235430;
-    }
-    .btn-aluno-acao:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    .alerta-erro {
-      background-color: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #b91c1c;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 20px;
-      line-height: 1.4;
-    }
-    .alerta-sucesso {
-      background-color: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: #166534;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 20px;
-      line-height: 1.4;
-    }
-    .caixa-info-acesso {
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 16px;
-      margin-top: 24px;
-      font-size: 13px;
-      color: #64748b;
-      line-height: 1.5;
-    }
 
-    /* Painel do Aluno logado */
     .painel-aluno-topo {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 24px;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 16px;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      padding: 18px 24px;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
     }
-    .saudacao-aluno h2 {
+    .saudacao-aluno {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .avatar-aluno-topo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #eef8f0;
+      border: 1.5px solid #bbf7d0;
+      color: #2e6b3e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(46, 107, 62, 0.08);
+      user-select: none;
+    }
+    #saudacaoNomeAluno {
       margin: 0;
       font-size: 22px;
+      font-weight: 700;
       color: #0f172a;
+      letter-spacing: -0.3px;
+      line-height: 1.25;
     }
-    .saudacao-aluno p {
-      margin: 4px 0 0;
-      font-size: 14px;
+    #subtituloStatusAluno {
+      margin: 3px 0 0;
+      font-size: 13.5px;
       color: #64748b;
-    }
-    .acoes-topo-aluno {
+      line-height: 1.4;
       display: flex;
-      gap: 10px;
-    }
-    .btn-secundario-aluno {
-      background-color: #ffffff;
-      border: 1px solid #cbd5e1;
-      color: #334155;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
     }
-    .btn-secundario-aluno:hover {
-      background-color: #f8fafc;
+    .badge-aluno-topo {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      box-shadow: 0 1px 2px rgba(22, 101, 52, 0.06);
+      white-space: nowrap;
     }
+    .ponto-status-verde {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #22c55e;
+      box-shadow: 0 0 0 2.5px #dcfce7;
+      display: inline-block;
+    }
+
     .card-painel {
       background: #ffffff;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      padding: 24px;
+      padding: 24px 28px;
       margin-bottom: 24px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      scroll-margin-top: 80px;
     }
     .card-painel-header {
       display: flex;
@@ -194,386 +639,792 @@
     }
     .card-painel-header h3 {
       margin: 0;
-      font-size: 18px;
+      font-size: 19px;
       color: #1e293b;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .badge-confirmado {
-      background-color: #eaf5ec;
-      color: #2e6b3e;
-      font-weight: 700;
-      font-size: 12px;
-      padding: 6px 12px;
-      border-radius: 9999px;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .badge-pendente {
-      background-color: #fef9c3;
-      color: #854d0e;
-      font-weight: 700;
-      font-size: 12px;
-      padding: 6px 12px;
-      border-radius: 9999px;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .barra-teste-status {
-      background-color: #f8fafc;
-      border: 1px dashed #94a3b8;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      font-size: 13px;
-    }
-    .btn-toggle-teste {
-      background: #2e6b3e;
-      color: #ffffff;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn-toggle-teste:hover {
-      background: #235430;
-    }
-    .grid-dados-aluno {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-    }
-    .dado-item .rotulo {
-      font-size: 12px;
-      color: #64748b;
-      font-weight: 600;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-    .dado-item .valor {
-      font-size: 15px;
-      color: #0f172a;
-      font-weight: 500;
-    }
-    .box-aviso-senha {
-      background-color: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 8px;
-      padding: 16px 20px;
+
+    /* CARD DO CURSO: Fundo branco alinhado aos outros modelos, com borda institucional e espaçamento limpo */
+    #cardCursoAluno {
+      background-color: #ffffff;
+      border: 2px solid #2e6b3e;
+      border-radius: 12px;
+      padding: 24px 28px;
       margin-bottom: 24px;
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-    .box-aviso-senha p {
-      margin: 0;
-      font-size: 14px;
-      color: #92400e;
-      line-height: 1.5;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+      box-sizing: border-box;
     }
 
-    /* Modal de Troca de Senha */
+    #cardCursoAluno .card-painel-header {
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+    }
+
+    #cardCursoAluno .card-painel-header h3 {
+      color: #1e293b;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    /* Descrição do treinamento:
+       - Quadrado interno removido (sem borda/fundo duplo aninhado)
+       - Preserva quebras de linha e parágrafos estruturados (white-space: pre-line)
+       - Alinhamento justificado e espaçamento de linha 1.5
+       - Tipografia e peso estabelecidos mantidos */
+    #descricaoCursoAluno,
+    .descricao-curso {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin: 0;
+      font-size: 14px;
+      white-space: pre-line;
+      line-height: 1.5;
+      text-align: justify;
+      color: #222222;
+      box-sizing: border-box;
+    }
+
+    #descricaoCursoAluno:empty {
+      display: none;
+    }
+
+    #descricaoCursoAluno strong {
+      color: #0f172a;
+    }
+
+    /* RESPONSIVIDADE (MOBILE & TABLET) */
+    @media (max-width: 900px) {
+      .conteudo-principal-app {
+        margin-left: 0 !important;
+        padding: 20px 16px 60px;
+      }
+      .sidebar-youtube {
+        transform: translateX(-100%);
+        width: 260px !important;
+      }
+      .sidebar-youtube.aberta-mobile {
+        transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+      }
+      .sidebar-youtube.aberta-mobile .item-nav-texto {
+        opacity: 1 !important;
+        transform: translateX(0) !important;
+        width: auto !important;
+        max-width: none !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+      }
+      .sidebar-youtube.aberta-mobile .nav-secao-titulo {
+        opacity: 1 !important;
+        transform: translateX(0) !important;
+        visibility: visible !important;
+        height: auto !important;
+        pointer-events: auto !important;
+      }
+      .sidebar-youtube.aberta-mobile .rodape-sidebar {
+        opacity: 1 !important;
+        transform: translateX(0) !important;
+        visibility: visible !important;
+        height: auto !important;
+        pointer-events: auto !important;
+      }
+      .sidebar-youtube.aberta-mobile .item-nav-btn {
+        justify-content: flex-start !important;
+        padding: 0 14px !important;
+        gap: 14px !important;
+      }
+      .topbar-congelada {
+        padding: 0 14px;
+      }
+      .tag-area-portal {
+        display: none;
+      }
+      body.usuario-deslogado .tag-area-portal {
+        display: inline-block !important;
+        font-size: 11px;
+        padding: 3px 8px;
+        margin-left: 6px;
+      }
+    }
+
+    /* MODAIS DO SISTEMA */
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(15, 23, 42, 0.6);
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 100;
+      z-index: 2000;
       padding: 20px;
+      backdrop-filter: blur(3px);
     }
     .modal-conteudo {
       background: #ffffff;
-      border-radius: 12px;
+      border-radius: 14px;
       width: 100%;
-      max-width: 440px;
-      padding: 28px;
+      max-width: 450px;
+      padding: 30px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      box-sizing: border-box;
+    }
+    .modal-conteudo-largo {
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 32px 32px 28px;
+    }
+
+    .btn-fechar-modal-x {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 34px;
+      height: 34px;
+      background-color: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      font-size: 22px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+      z-index: 10;
+    }
+    .btn-fechar-modal-x:hover,
+    .btn-fechar-modal-x:focus-visible {
+      background-color: #2e6b3e !important;
+      border-color: #2e6b3e !important;
+      color: #ffffff !important;
+      box-shadow: 0 2px 6px rgba(46, 107, 62, 0.25);
+    }
+    .btn-fechar-modal-x:active {
+      transform: translateY(1px);
+    }
+
+    .rotulo-modulo-status {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .valor-modulo-status {
+      font-size: 14px;
+      color: #0f172a;
+    }
+
+    a[href^="mailto:"]:not(.item-nav-btn),
+    .link-email,
+    a.link-email {
+      color: #0066cc !important;
+      text-decoration: underline !important;
+      cursor: pointer;
+      word-break: break-all;
+      font-weight: 500;
+      transition: color 0.15s ease, opacity 0.15s ease;
+    }
+    a[href^="mailto:"]:not(.item-nav-btn):hover,
+    .link-email:hover,
+    a.link-email:hover {
+      color: #004499 !important;
+      text-decoration: underline !important;
+      opacity: 0.85;
+    }
+
+    /* ESTILOS DO MÓDULO DE CERTIFICADOS (MEDIDAS OFICIAIS A4) */
+    .certificado-visual-card {
+      background: #ffffff;
+      box-sizing: border-box;
+      border: 2.5px solid #2e6b3e;
+      border-radius: 4px;
+      padding: 6px;
+      box-shadow: 0 4px 20px rgba(46, 107, 62, 0.08);
+      margin: 0 auto;
+      width: 100%;
+    }
+    .certificado-moldura {
+      border: 1.5px dashed #2e6b3e;
+      border-radius: 3px;
+      padding: 20px 24px 16px;
+      background: #ffffff;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .certificado-cabecalho {
+      margin-bottom: 10px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    .certificado-logo {
+      height: 44px;
+      width: auto;
+      object-fit: contain;
+      margin-bottom: 4px;
+      display: inline-block;
+    }
+    .certificado-instituicao {
+      font-size: 11px;
+      font-weight: 700;
+      color: #2e6b3e;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+    .certificado-titulo {
+      font-size: 21px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 1.5px;
+      margin: 0;
+    }
+    .certificado-corpo {
+      padding: 8px 0 10px;
+    }
+    .certificado-texto-declaracao {
+      font-size: 14px;
+      color: #334155;
+      line-height: 1.6;
+      margin: 0 auto;
+      max-width: 720px;
+    }
+    .destaque-aluno {
+      color: #0f172a;
+      font-size: 15.5px;
+      font-weight: 700;
+    }
+    .certificado-nome-curso {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e522d;
+      margin: 10px auto;
+      padding: 7px 18px;
+      background: #f0fdf4;
+      border-radius: 6px;
+      display: inline-block;
+      border: 1px solid #bbf7d0;
+      max-width: 90%;
+      line-height: 1.35;
+    }
+    .certificado-detalhes-texto {
+      font-size: 13px;
+      color: #64748b;
+      margin: 6px 0 0;
+    }
+    .certificado-rodape {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      gap: 16px;
+    }
+    .certificado-assinatura-bloco {
+      text-align: left;
+    }
+    .linha-assinatura {
+      width: 200px;
+      height: 1px;
+      background: #0f172a;
+      margin-bottom: 5px;
+    }
+    .cargo-assinatura {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .inst-assinatura {
+      font-size: 10px;
+      color: #64748b;
+    }
+    .certificado-selo-bloco {
+      text-align: right;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 6px 14px;
+      border-radius: 6px;
+    }
+    .selo-icone {
+      font-size: 16px;
+      margin-bottom: 2px;
+    }
+    .selo-texto {
+      font-size: 9px;
+      font-weight: 700;
+      color: #2e6b3e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .selo-codigo {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #0f172a;
+      font-family: monospace;
+      margin-top: 2px;
+    }
+
+    /* ==========================================================
+       MODO DE IMPRESSÃO PROFISSIONAL DO CERTIFICADO (A4 HORIZONTAL)
+       Medidas oficiais de certificado: 297mm x 210mm com 10mm de margem
+       ========================================================== */
+    @page {
+      size: 297mm 210mm landscape;
+      margin: 10mm;
     }
     @media print {
-      body * { visibility: hidden; }
-      #comprovanteMatricula, #comprovanteMatricula * { visibility: visible; }
-      #comprovanteMatricula { position: absolute; left: 0; top: 0; width: 100%; }
-      .acoes-topo-aluno, .btn-aluno-acao, .btn-secundario-aluno, .cabecalho-aluno { display: none !important; }
+      html, body {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* Oculta tudo que estiver fora de #modalCertificados */
+      body.imprimindo-somente-certificado > *:not(#modalCertificados) {
+        display: none !important;
+        visibility: hidden !important;
+      }
+
+      /* Reseta o modal para a folha de impressão */
+      body.imprimindo-somente-certificado #modalCertificados {
+        display: block !important;
+        position: static !important;
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        box-shadow: none !important;
+        visibility: visible !important;
+      }
+
+      body.imprimindo-somente-certificado #modalCertificados .modal-conteudo {
+        display: block !important;
+        position: static !important;
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important;
+        visibility: visible !important;
+      }
+
+      /* Oculta botões, fechar e cabeçalho da janela modal */
+      body.imprimindo-somente-certificado .btn-fechar-modal-x,
+      body.imprimindo-somente-certificado #blocoBotoesAcaoCertificado,
+      body.imprimindo-somente-certificado #modalCertificados .modal-conteudo > div:first-child,
+      body.imprimindo-somente-certificado #blocoCertificadoPendente {
+        display: none !important;
+        visibility: hidden !important;
+      }
+
+      body.imprimindo-somente-certificado #blocoCertificadoDisponivel {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        visibility: visible !important;
+      }
+
+      /* Certificado enquadrado em folha A4 com proporção precisa e sem cortes */
+      body.imprimindo-somente-certificado #documentoCertificado {
+        display: block !important;
+        visibility: visible !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        padding: 6px !important;
+        border: 2.5px solid #2e6b3e !important;
+        border-radius: 4px !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        box-sizing: border-box !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
+      body.imprimindo-somente-certificado #documentoCertificado * {
+        visibility: visible !important;
+      }
+
+      body.imprimindo-somente-certificado .certificado-moldura {
+        width: 100% !important;
+        background: #ffffff !important;
+        border: 1.5px dashed #2e6b3e !important;
+        border-radius: 3px !important;
+        padding: 16px 20px 14px !important;
+        box-sizing: border-box !important;
+      }
     }
   </style>
 </head>
-<body class="pagina-aluno">
+<body class="pagina-inscrito-app usuario-deslogado">
 
-  <!-- Cabeçalho Institucional -->
-  <header id="cabecalhoAluno" class="cabecalho-aluno">
-    <a href="/" title="Voltar à página inicial">
-      <img id="imgLogoApassul" src="logo-apassul.png" alt="Logo Apassul" class="logo-aluno">
-    </a>
-    <a id="linkVoltarInscricao" href="/" class="link-voltar-topo">
-      ← Página de Inscrição
-    </a>
+  <!-- ==========================================================
+       1. LINHA HORIZONTAL CONGELADA NO TOPO (LOGO + BARRINHAS)
+       ========================================================== -->
+  <header id="topbarCongelada" class="topbar-congelada">
+    <div class="topbar-esquerda">
+      <!-- Botão das 3 barrinhas que abre e fecha a barra lateral (aparece somente após login) -->
+      <button
+        type="button"
+        id="btnToggleSidebar"
+        class="btn-menu-hamburguer"
+        title="Alternar menu lateral"
+        aria-label="Alternar menu lateral"
+        aria-expanded="false"
+      >
+        <svg class="icone-hamburguer" viewBox="0 0 24 24">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <!-- Logo da Apassul juntamente com Área do Inscrito -->
+      <div class="bloco-marca-apassul" id="blocoMarcaApassul">
+        <a href="/" class="link-logo-topbar" title="Voltar à página inicial">
+          <img id="imgLogoApassul" src="logo-apassul.png" alt="Logo Apassul" class="logo-apassul-topbar">
+        </a>
+        <span class="tag-area-portal">Área do Inscrito</span>
+      </div>
+    </div>
+
+    <div class="topbar-direita">
+      <a id="linkVoltarInscricao" href="/" class="btn-secundario-aluno" title="Voltar para a página de inscrição">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+          <path d="M9 14l2 2 4-4"></path>
+        </svg>
+        Página de Inscrição
+      </a>
+    </div>
   </header>
 
-  <!-- ======================================================= -->
-  <!-- SEÇÃO 1: FORMULÁRIO DE LOGIN DO ALUNO                    -->
-  <!-- ======================================================= -->
-  <main id="secaoLogin" class="card-login-aluno">
-    <h1 id="tituloLoginAluno" class="titulo-aluno">Área do Inscrito</h1>
-    <p id="subtituloLoginAluno" class="subtitulo-aluno">
-      Informe seu e-mail cadastrado na inscrição e sua senha de acesso. No primeiro login, utilize a senha provisória enviada para seu e-mail.
-    </p>
+  <!-- Fundo escurecido para fechar a sidebar em telas pequenas -->
+  <div id="overlaySidebarBackdrop" class="overlay-sidebar-backdrop"></div>
 
-    <div id="msgErroLogin" class="alerta-erro" hidden></div>
-    <div id="msgSucessoLogin" class="alerta-sucesso" hidden></div>
+  <!-- CONTAINER GERAL DO APP -->
+  <div class="app-container">
 
-    <form id="formLoginAluno" novalidate>
-      <div class="grupo-campo">
-        <label for="inputEmailAluno">E-mail do Participante:</label>
-        <input
-          type="email"
-          id="inputEmailAluno"
-          name="email"
-          required
-          placeholder="exemplo@email.com.br"
-          autocomplete="username"
-        >
-      </div>
+    <!-- ==========================================================
+         2. BARRA LATERAL ESTILO YOUTUBE (EXPANDE / RECOLHE)
+         Aparece apenas a partir do logon do usuário
+         ========================================================== -->
+    <aside id="sidebarYoutube" class="sidebar-youtube recolhida" aria-label="Navegação do Portal" hidden>
+      <nav>
+        <div class="nav-secao-titulo">Menu do Participante</div>
+        <ul class="lista-nav-sidebar">
+          <li>
+            <button type="button" class="item-nav-btn ativo" id="navItemInicio" title="Início / Visão Geral" onclick="navegarParaSecao('secaoPainelAluno')">
+              <span class="item-nav-icone">🏠</span>
+              <span class="item-nav-texto">Início / Visão Geral</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="item-nav-btn" id="navItemCurso" title="Sala de Aulas" onclick="navegarParaSecao('cardAreaDoCurso')">
+              <span class="item-nav-icone">🎓</span>
+              <span class="item-nav-texto">Sala de Aulas</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="item-nav-btn" id="navItemMateriais" title="Apostilas e Materiais" onclick="navegarParaSecao('cardMateriaisAluno')">
+              <span class="item-nav-icone">📚</span>
+              <span class="item-nav-texto">Apostilas e Materiais</span>
+            </button>
+          </li>
+        </ul>
 
-      <div class="grupo-campo">
-        <label for="inputSenhaAluno">Senha de Acesso:</label>
-        <input
-          type="password"
-          id="inputSenhaAluno"
-          name="senha"
-          required
-          placeholder="Digite a senha provisória ou sua senha cadastrada"
-          autocomplete="current-password"
-        >
-      </div>
+        <div class="sidebar-divisor"></div>
 
-      <button type="submit" id="btnEntrarAluno" class="btn-aluno-acao">
-        Entrar na Área do Inscrito
-      </button>
-    </form>
-
-    <div id="boxAjudaLogin" class="caixa-info-acesso">
-      <strong>ℹ️ Como funciona o primeiro acesso?</strong>
-      <p style="margin: 6px 0 0;">
-        Assim que a inscrição é realizada, nosso sistema envia para o seu e-mail uma <strong>senha provisória de 8 caracteres</strong>.
-      </p>
-      <p style="margin: 6px 0 0;">
-        Basta digitar seu e-mail e essa senha provisória nos campos acima e clicar em <strong>"Entrar"</strong>. Na sequência, o sistema solicitará que você defina sua nova senha definitiva.
-      </p>
-      <p style="margin: 6px 0 0;">
-        Dúvidas ou suporte? Entre em contato pelo e-mail: <strong>ouvidoria@apassul.com.br</strong>.
-      </p>
-    </div>
-  </main>
-
-  <!-- ======================================================= -->
-  <!-- SEÇÃO 2: PAINEL PRINCIPAL DO ALUNO (APÓS LOGIN)          -->
-  <!-- ======================================================= -->
-  <section id="secaoPainelAluno" hidden>
-    <!-- Barra de Simulação para Testes -->
-    <div id="barraSimulacaoTeste" class="barra-teste-status">
-      <div>
-        <strong>🧪 Modo de Teste Rápido:</strong>
-        <span id="textoStatusAtualTeste" style="margin-left: 6px; color: #475569;">Alternar entre status Pago e Pendente para testar a Área do Curso</span>
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button id="btnSimularPago" type="button" class="btn-toggle-teste" style="background: #2e6b3e;">
-          Simular como PAGO
-        </button>
-        <button id="btnSimularPendente" type="button" class="btn-toggle-teste" style="background: #d97706;">
-          Simular como PENDENTE
-        </button>
-      </div>
-    </div>
-
-    <div id="topoPainelAluno" class="painel-aluno-topo">
-      <div class="saudacao-aluno">
-        <h2 id="saudacaoNomeAluno">Olá, Participante</h2>
-        <p id="subtituloStatusAluno">Sua inscrição está confirmada no sistema Apassul</p>
-      </div>
-
-      <div class="acoes-topo-aluno">
-        <button id="btnAbrirTrocaSenha" class="btn-secundario-aluno" type="button">
-          🔑 Alterar Senha
-        </button>
-        <button id="btnImprimirComprovante" class="btn-secundario-aluno" type="button">
-          🖨️ Imprimir Comprovante
-        </button>
-        <button id="btnSairAluno" class="btn-secundario-aluno" type="button" style="color: #b91c1c;">
-          Sair
-        </button>
-      </div>
-    </div>
-
-    <!-- Banner caso esteja usando senha provisória -->
-    <div id="bannerSenhaProvisoria" style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;" hidden>
-      <div style="font-size: 13px; color: #92400e;">
-        🔑 <strong>Senha Provisória em uso:</strong> Você ainda está utilizando a senha provisória enviada por e-mail. Defina sua nova senha pessoal definitiva.
-      </div>
-      <button id="btnCadastrarSenhaDefinitivaBanner" type="button" class="btn-toggle-teste" style="background: #b45309; white-space: nowrap;">
-        Cadastrar Nova Senha
-      </button>
-    </div>
-
-    <!-- Card 1: Informações da Inscrição -->
-    <div id="cardCursoAluno" class="card-painel">
-      <div class="card-painel-header">
-        <h3 id="tituloNomeCurso">Carregando informações do treinamento...</h3>
-        <span id="badgeMatriculaConfirmada" class="badge-confirmado">
-          ✓ Inscrição Confirmada
-        </span>
-      </div>
-
-      <div id="descricaoCursoAluno" style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 20px;"></div>
-
-      <div class="grid-dados-aluno">
-        <div class="dado-item">
-          <div class="rotulo">Status da Inscrição</div>
-          <div id="dadoStatusInscricao" class="valor" style="color: #2e6b3e; font-weight: 700;">Confirmada no Sistema</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">Data do Treinamento</div>
-          <div id="dadoDataCurso" class="valor">-</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">Carga Horária</div>
-          <div id="dadoCargaHoraria" class="valor">-</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">Status do Pagamento</div>
-          <div id="dadoStatusPagamentoTexto" class="valor">-</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Card 2: ÁREA DO CURSO E AULAS (LIBERADO APÓS PAGAMENTO) -->
-    <div id="cardAreaDoCurso" class="card-painel" style="border-width: 2px;">
-      <div class="card-painel-header">
-        <h3 style="color: #1e293b;">
-          🎓 Área do Curso e Conteúdo Exclusivo
-        </h3>
-        <span id="badgeAcessoCurso" class="badge-confirmado">
-          Acesso Liberado
-        </span>
-      </div>
-
-      <!-- VISÃO 1: QUANDO ESTÁ PENDENTE DE PAGAMENTO -->
-      <div id="blocoCursoPendente" hidden>
-        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 24px;">🔒</span>
-            <strong style="color: #92400e; font-size: 16px;">Acesso às aulas e materiais aguardando confirmação do pagamento</strong>
-          </div>
-          <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.5;">
-            Sua vaga está garantida e sua inscrição está confirmada no sistema! A sala de transmissão ao vivo, apostilas oficiais e certificados são liberados imediatamente assim que o pagamento via Pix ou Boleto for compensado.
-          </p>
-        </div>
-
-        <div id="blocoPagarAgoraPainel" style="text-align: center; padding: 16px 0 8px;">
-          <p style="font-size: 14px; color: #475569; margin: 0 0 12px;">Deseja concluir o pagamento agora pelo Mercado Pago?</p>
-          <a id="btnIrMPPainel" href="#" target="_blank" rel="noopener noreferrer" class="btn-aluno-acao" style="text-decoration: none; display: inline-block; width: auto; padding: 12px 28px;">
-            💳 Concluir Pagamento no Mercado Pago
-          </a>
-        </div>
-      </div>
-
-      <!-- VISÃO 2: QUANDO ESTÁ PAGO / CONFIRMADO -->
-      <div id="blocoCursoLiberado" hidden>
-        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
-          <strong style="color: #166534; font-size: 15px; display: flex; align-items: center; gap: 8px;">
-            ✓ Pagamento compensado! Bem-vindo(a) à sala de aulas do treinamento.
-          </strong>
-          <p style="margin: 6px 0 0; color: #14532d; font-size: 13px; line-height: 1.5;">
-            Você já tem acesso total aos links de transmissão ao vivo, biblioteca de apostilas e certificado de conclusão.
-          </p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px;">
-          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; background: #fafafa;">
-            <div style="font-size: 13px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; margin-bottom: 6px;">🎥 Sala de Transmissão ao Vivo</div>
-            <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Google Meet / Zoom Apassul</div>
-            <p style="font-size: 13px; color: #64748b; margin: 0 0 14px; line-height: 1.4;">O link oficial de acesso à transmissão será ativado 30 minutos antes do início do evento.</p>
-            <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #2e6b3e; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none;">
-              Acessar Sala de Aula →
+        <div class="nav-secao-titulo">Ações e Documentos</div>
+        <ul class="lista-nav-sidebar">
+          <li>
+            <button type="button" class="item-nav-btn" id="btnSidebarCertificados" title="Certificados de Conclusão" onclick="abrirModuloCertificados()">
+              <span class="item-nav-icone">📜</span>
+              <span class="item-nav-texto">Certificados</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="item-nav-btn" id="btnSidebarStatusInscricao" title="Status da Inscrição" onclick="abrirModuloStatusInscricao()">
+              <span class="item-nav-icone">📋</span>
+              <span class="item-nav-texto">Status da Inscrição</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="item-nav-btn" id="btnSidebarDadosCadastrais" title="Dados Cadastrais" onclick="abrirModuloDadosCadastrais()">
+              <span class="item-nav-icone">👤</span>
+              <span class="item-nav-texto">Dados Cadastrais</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="item-nav-btn" id="btnSidebarTrocarSenha" title="Alterar Senha" onclick="abrirModalTrocaSenha(false)">
+              <span class="item-nav-icone">🔑</span>
+              <span class="item-nav-texto">Alterar Senha</span>
+            </button>
+          </li>
+          <li>
+            <a href="mailto:ouvidoria@apassul.com.br" class="item-nav-btn" title="Suporte / Ouvidoria" target="_blank" rel="noopener noreferrer">
+              <span class="item-nav-icone">💬</span>
+              <span class="item-nav-texto">Suporte / Ouvidoria</span>
             </a>
-          </div>
+          </li>
+          <li>
+            <button type="button" class="item-nav-btn" id="btnSidebarSair" title="Sair da Conta" style="color: #b91c1c;" onclick="fazerLogout()">
+              <span class="item-nav-icone">🚪</span>
+              <span class="item-nav-texto">Sair da Conta</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
 
-          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; background: #fafafa;">
-            <div style="font-size: 13px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; margin-bottom: 6px;">📚 Material Didático</div>
-            <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Apostila Oficial e Legislação Vigente</div>
-            <p style="font-size: 13px; color: #64748b; margin: 0 0 14px; line-height: 1.4;">Faça o download do PDF com o conteúdo programático completo e materiais de apoio.</p>
-            <button type="button" onclick="alert('Download da apostila liberado com sucesso!')" style="background: #ffffff; border: 1px solid #cbd5e1; color: #334155; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
-              📥 Baixar Apostila Oficial (PDF)
+      <!-- Marca Apassul no rodapé da barra lateral:
+           - Link direto para o portal oficial https://apassul.com.br
+           - Barra recolhida (fechada): exibe o Favicon centralizado
+           - Barra expandida (aberta): exibe a Logo Completa (mesma da barra horizontal congelada) -->
+      <a
+        href="https://apassul.com.br"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="rodape-sidebar-marca"
+        id="rodapeSidebarMarca"
+        title="Acessar o portal oficial da Apassul (apassul.com.br)"
+        aria-label="Acessar portal da Apassul"
+      >
+        <img
+          src="favicon.png"
+          alt="Apassul"
+          class="logo-sidebar-favicon"
+          id="imgSidebarFavicon"
+          title="Apassul"
+        >
+        <img
+          src="logo-apassul.png"
+          alt="Apassul Treinamentos"
+          class="logo-sidebar-completa"
+          id="imgSidebarCompleta"
+          title="Apassul Treinamentos"
+        >
+      </a>
+    </aside>
+
+    <!-- ==========================================================
+         3. CONTEÚDO PRINCIPAL (LOGIN OU PAINEL COMPLETO)
+         ========================================================== -->
+    <main id="conteudoPrincipalApp" class="conteudo-principal-app expandido">
+
+      <!-- TELA DE LOGIN DO ALUNO (QUANDO NÃO LOGADO) -->
+      <section id="secaoLogin" class="secao-login-wrapper">
+        <!-- Caixa Principal de Login -->
+        <div class="card-login-aluno">
+          <div id="msgErroLogin" class="alerta-erro" hidden></div>
+          <div id="msgSucessoLogin" class="alerta-sucesso" hidden></div>
+
+          <form id="formLoginAluno" novalidate style="box-shadow: none; padding: 0; background: transparent;">
+            <div class="grupo-campo">
+              <label for="inputEmailAluno">E-mail do Participante:</label>
+              <input
+                type="email"
+                id="inputEmailAluno"
+                name="email"
+                required
+                placeholder="exemplo@email.com.br"
+                autocomplete="username"
+              >
+            </div>
+
+            <div class="grupo-campo">
+              <label for="inputSenhaAluno">Senha de Acesso:</label>
+              <input
+                type="password"
+                id="inputSenhaAluno"
+                name="senha"
+                required
+                placeholder="Digite sua senha cadastrada ou a senha provisória"
+                autocomplete="current-password"
+              >
+            </div>
+
+            <button type="submit" id="btnEntrarAluno" class="btn-aluno-acao" style="margin-top: 8px;">
+              Entrar na Área do Inscrito
+            </button>
+          </form>
+        </div>
+
+        <!-- Caixa Separada de Ajuda / Primeiro Acesso -->
+        <div id="boxAjudaLogin" class="card-ajuda-login">
+          <div class="cabecalho-ajuda-login">
+            <span style="font-size: 16px; line-height: 1;" aria-hidden="true">ℹ️</span>
+            <strong>Primeiro Acesso?</strong>
+          </div>
+          <p class="texto-ajuda-login">
+            A sua senha inicial alfanumérica é gerada no momento da confirmação da inscrição e enviada para o seu e-mail.
+          </p>
+          <p class="suporte-ajuda-login">
+            <span>Dúvidas ou suporte? Entre em contato:</span>
+            <a href="mailto:ouvidoria@apassul.com.br" class="link-email">ouvidoria@apassul.com.br</a>.
+          </p>
+        </div>
+      </section>
+
+      <!-- PAINEL COMPLETO DO ALUNO (APÓS LOGIN) -->
+      <section id="secaoPainelAluno" hidden>
+
+        <!-- Barra de Simulação Rápida para Testes -->
+        <div id="barraSimulacaoTeste" class="barra-teste-status" style="margin-bottom: 24px;">
+          <div>
+            <strong>🧪 Modo de Teste Rápido:</strong>
+            <span id="textoStatusAtualTeste" style="margin-left: 6px; color: #475569;">Alternar status de teste da Área do Curso</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnSimularPago" type="button" class="btn-toggle-teste" style="background: #2e6b3e;">
+              Simular como PAGO
+            </button>
+            <button id="btnSimularPendente" type="button" class="btn-toggle-teste" style="background: #d97706;">
+              Simular como PENDENTE
             </button>
           </div>
         </div>
 
-        <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155;">
-          📢 <strong>Orientações da Coordenação:</strong> Recomendamos acessar a sala com 10 minutos de antecedência para teste de áudio e vídeo. Dúvidas técnicas podem ser enviadas para <strong>ouvidoria@apassul.com.br</strong>.
+        <!-- Cabeçalho do Aluno Logado -->
+        <div id="topoPainelAluno" class="painel-aluno-topo">
+          <div class="saudacao-aluno">
+            <div class="avatar-aluno-topo" id="avatarAlunoTopo">🎓</div>
+            <div>
+              <h2 id="saudacaoNomeAluno">Olá, Participante</h2>
+              <p id="subtituloStatusAluno">
+                Sua matrícula está ativa no sistema de treinamentos da Apassul
+              </p>
+            </div>
+          </div>
+          <div class="badge-aluno-topo">
+            <span class="ponto-status-verde"></span>
+            <span>Matrícula Confirmada</span>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Card 3: Dados do Participante Cadastrado -->
-    <div id="cardDadosParticipante" class="card-painel">
-      <div class="card-painel-header">
-        <h3>Seus Dados Cadastrados</h3>
-      </div>
+        <!-- Banner caso esteja usando senha provisória -->
+        <div id="bannerSenhaProvisoria" style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;" hidden>
+          <div style="font-size: 14px; color: #92400e;">
+            🔑 <strong>Senha Provisória em uso:</strong> Você está utilizando a senha temporária. Recomendamos definir uma nova senha definitiva.
+          </div>
+          <button id="btnCadastrarSenhaDefinitivaBanner" type="button" class="btn-toggle-teste" style="background: #b45309; white-space: nowrap;">
+            Cadastrar Nova Senha
+          </button>
+        </div>
 
-      <div class="grid-dados-aluno">
-        <div class="dado-item">
-          <div class="rotulo">Nome Completo</div>
-          <div id="dadoNomeParticipante" class="valor">-</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">CPF</div>
-          <div id="dadoCpfParticipante" class="valor">-</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">E-mail</div>
-          <div id="dadoEmailParticipante" class="valor">-</div>
-        </div>
-        <div class="dado-item">
-          <div class="rotulo">Telefone / WhatsApp</div>
-          <div id="dadoTelefoneParticipante" class="valor">-</div>
-        </div>
-        <div class="dado-item" style="grid-column: 1 / -1;">
-          <div class="rotulo">Empresa / Instituição</div>
-          <div id="dadoEmpresaParticipante" class="valor">-</div>
-        </div>
-      </div>
-    </div>
+        <!-- Card 1: Descrição Oficial do Treinamento (Limpo e Focado no Conteúdo) -->
+        <div id="cardCursoAluno" class="card-painel">
+          <div class="card-painel-header">
+            <h3 id="tituloNomeCurso">Carregando informações do treinamento...</h3>
+          </div>
 
-    <!-- Card 3: Informações das Aulas e Materiais -->
-    <div id="cardMateriaisAluno" class="card-painel">
-      <div class="card-painel-header">
-        <h3>Acesso às Aulas e Comunicações</h3>
-      </div>
-      <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px;">
-        Os links da sala de transmissão ao vivo (ou endereço do local presencial) e as apostilas oficiais serão disponibilizados aos participantes nesta área antes do início das atividades.
-      </p>
-      <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155;">
-        📢 <strong>Aviso Importante:</strong> Mantenha seu e-mail e telefone atualizados. Qualquer comunicado urgente será enviado diretamente pela coordenação da Apassul.
-      </div>
-    </div>
-  </section>
+          <div id="descricaoCursoAluno" class="descricao-curso"></div>
+        </div>
+
+        <!-- Card 2: ÁREA DO CURSO E AULAS (LIBERADO APÓS PAGAMENTO) -->
+        <div id="cardAreaDoCurso" class="card-painel" style="border: 2px solid #2e6b3e;">
+          <div class="card-painel-header">
+            <h3 style="color: #1e293b;">
+              🎓 Área do Curso e Transmissão Exclusiva
+            </h3>
+            <span id="badgeAcessoCurso" class="badge-confirmado">
+              Acesso Liberado
+            </span>
+          </div>
+
+          <!-- VISÃO 1: QUANDO ESTÁ PENDENTE DE PAGAMENTO -->
+          <div id="blocoCursoPendente" hidden>
+            <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <span style="font-size: 24px;">🔒</span>
+                <strong style="color: #92400e; font-size: 16px;">Acesso às aulas aguardando compensação do pagamento</strong>
+              </div>
+              <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.5;">
+                Sua vaga está assegurada! A sala de transmissão ao vivo e as apostilas oficiais serão liberadas imediatamente após a aprovação do pagamento.
+              </p>
+            </div>
+
+            <div id="blocoPagarAgoraPainel" style="text-align: center; padding: 16px 0 8px;">
+              <p style="font-size: 14px; color: #475569; margin: 0 0 12px;">Deseja concluir o pagamento agora pelo Mercado Pago?</p>
+              <a id="btnIrMPPainel" href="#" target="_blank" rel="noopener noreferrer" class="btn-aluno-acao">
+                💳 Concluir Pagamento no Mercado Pago
+              </a>
+            </div>
+          </div>
+
+          <!-- VISÃO 2: QUANDO ESTÁ PAGO / CONFIRMADO -->
+          <div id="blocoCursoLiberado" hidden>
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+              <strong style="color: #166534; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                ✓ Acesso 100% Liberado! Bem-vindo(a) à sala de aulas do treinamento.
+              </strong>
+              <p style="margin: 6px 0 0; color: #14532d; font-size: 13px; line-height: 1.5;">
+                Você possui acesso completo aos links de transmissão ao vivo e material didático oficial.
+              </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 20px;">
+              <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; background: #fafafa;">
+                <div style="font-size: 12px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; margin-bottom: 6px;">🎥 Sala de Transmissão ao Vivo</div>
+                <div style="font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Google Meet / Zoom Apassul</div>
+                <p style="font-size: 13px; color: #64748b; margin: 0 0 16px; line-height: 1.4;">O link oficial de acesso é ativado 30 minutos antes do início do evento.</p>
+                <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" class="btn-aluno-acao">
+                  Acessar Sala de Aula →
+                </a>
+              </div>
+
+              <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; background: #fafafa;">
+                <div style="font-size: 12px; font-weight: 700; color: #2e6b3e; text-transform: uppercase; margin-bottom: 6px;">📚 Material Didático</div>
+                <div style="font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 6px;">Apostila Oficial e Legislação Vigente</div>
+                <p style="font-size: 13px; color: #64748b; margin: 0 0 16px; line-height: 1.4;">Faça o download do PDF com o conteúdo programático completo e materiais de apoio.</p>
+                <button type="button" class="btn-secundario-aluno" onclick="alert('Download da apostila liberado com sucesso!')">
+                  📥 Baixar Apostila Oficial (PDF)
+                </button>
+              </div>
+            </div>
+
+            <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 14px 18px; border-radius: 4px; font-size: 13px; color: #334155;">
+              📢 <strong>Orientações da Coordenação:</strong> Recomendamos acessar a sala com 10 minutos de antecedência para testes de áudio e vídeo. Dúvidas técnicas podem ser enviadas para <a href="mailto:ouvidoria@apassul.com.br" class="link-email">ouvidoria@apassul.com.br</a>.
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Informações das Aulas e Materiais -->
+        <div id="cardMateriaisAluno" class="card-painel">
+          <div class="card-painel-header">
+            <h3>Acesso às Aulas e Comunicações</h3>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px;">
+            Os links da sala de transmissão ao vivo e as apostilas oficiais são disponibilizados aos participantes nesta área antes do início das atividades.
+          </p>
+          <div style="background-color: #f8fafc; border-left: 4px solid #2e6b3e; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155;">
+            📢 <strong>Aviso Importante:</strong> Mantenha seu e-mail e telefone atualizados para receber as comunicações da coordenação da Apassul.
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
 
   <!-- ======================================================= -->
   <!-- MODAL: DEFINIÇÃO / TROCA DE SENHA                        -->
@@ -583,8 +1434,8 @@
       <button
         type="button"
         id="btnFecharModalX"
-        style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; color: #64748b; cursor: pointer; line-height: 1; padding: 4px;"
-        title="Fechar e ir para o Login"
+        class="btn-fechar-modal-x"
+        title="Fechar e voltar"
       >
         &times;
       </button>
@@ -593,13 +1444,13 @@
         Cadastrar Nova Senha
       </h3>
       <p id="subtituloModalSenha" style="margin: 0 0 20px; font-size: 14px; color: #64748b; line-height: 1.5;">
-        Por motivos de segurança em seu primeiro acesso, defina sua senha pessoal definitiva.
+        Defina sua nova senha pessoal definitiva com no mínimo 6 dígitos.
       </p>
 
       <div id="msgErroModalSenha" class="alerta-erro" hidden></div>
       <div id="msgSucessoModalSenha" class="alerta-sucesso" hidden></div>
 
-      <form id="formTrocaSenha" novalidate>
+      <form id="formTrocaSenha" novalidate style="box-shadow: none; padding: 0; background: transparent;">
         <div class="grupo-campo">
           <label for="inputNovaSenha">Nova Senha (mínimo 6 dígitos):</label>
           <input
@@ -641,23 +1492,292 @@
             class="btn-aluno-acao"
             style="flex: 2;"
           >
-            Salvar e Continuar
-          </button>
-        </div>
-
-        <div style="text-align: center; margin-top: 18px;">
-          <button
-            type="button"
-            id="btnVoltarLoginModal"
-            style="background: none; border: none; color: #2e6b3e; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline;"
-          >
-            ← Fazer login com outro e-mail ou voltar à tela de login
+            Salvar Senha
           </button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- ======================================================= -->
+  <!-- MODAL / MÓDULO: STATUS DA INSCRIÇÃO                     -->
+  <!-- ======================================================= -->
+  <div id="modalStatusInscricao" class="modal-overlay" hidden style="display: none;">
+    <div class="modal-conteudo modal-conteudo-largo" style="position: relative;">
+      <button
+        type="button"
+        id="btnFecharModalStatusX"
+        class="btn-fechar-modal-x"
+        title="Fechar e voltar"
+      >
+        &times;
+      </button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+        <span style="font-size: 26px; line-height: 1;">📋</span>
+        <div>
+          <h3 style="margin: 0; color: #0f172a; font-size: 20px;">Status da Inscrição</h3>
+          <p style="margin: 2px 0 0; font-size: 13px; color: #64748b;">
+            Situação da matrícula e acompanhamento oficial do treinamento
+          </p>
+        </div>
+      </div>
+
+      <div style="margin-top: 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0;">
+          <div>
+            <span style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Situação Cadastral</span>
+            <div style="font-size: 13px; color: #64748b; margin-top: 2px;">Protocolo oficial autenticado no sistema Apassul</div>
+          </div>
+          <span id="badgeMatriculaConfirmada" class="badge-confirmado" style="font-size: 13px;">✓ Inscrição Confirmada</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <span class="rotulo-modulo-status">Status da Inscrição</span>
+            <div id="dadoStatusInscricao" class="valor-modulo-status" style="color: #2e6b3e; font-weight: 700;">Confirmada no Sistema</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <span class="rotulo-modulo-status">Status do Pagamento</span>
+            <div id="dadoStatusPagamentoTexto" class="valor-modulo-status" style="font-weight: 600;">-</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; grid-column: 1 / -1;">
+            <span class="rotulo-modulo-status">Treinamento Vinculado</span>
+            <div id="statusTreinamentoTexto" class="valor-modulo-status" style="font-size: 15px; font-weight: 700; color: #0f172a;">-</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <span class="rotulo-modulo-status">Data do Treinamento</span>
+            <div id="dadoDataCurso" class="valor-modulo-status">-</div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <span class="rotulo-modulo-status">Carga Horária</span>
+            <div id="dadoCargaHoraria" class="valor-modulo-status">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 22px; justify-content: flex-end; flex-wrap: wrap;">
+        <button
+          type="button"
+          id="btnImprimirComprovante"
+          class="btn-secundario-aluno"
+        >
+          🖨️ Imprimir Comprovante
+        </button>
+        <button
+          type="button"
+          id="btnFecharModalStatus"
+          class="btn-secundario-aluno"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- MODAL / MÓDULO: DADOS CADASTRAIS                        -->
+  <!-- ======================================================= -->
+  <div id="modalDadosCadastrais" class="modal-overlay" hidden style="display: none;">
+    <div class="modal-conteudo modal-conteudo-largo" style="position: relative;">
+      <button
+        type="button"
+        id="btnFecharModalDadosX"
+        class="btn-fechar-modal-x"
+        title="Fechar e voltar"
+      >
+        &times;
+      </button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+        <span style="font-size: 26px; line-height: 1;">👤</span>
+        <div>
+          <h3 style="margin: 0; color: #0f172a; font-size: 20px;">Dados Cadastrais</h3>
+          <p style="margin: 2px 0 0; font-size: 13px; color: #64748b;">
+            Informações registradas no ato da matrícula oficial da Apassul
+          </p>
+        </div>
+      </div>
+
+      <div style="margin-top: 18px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              🏷️ Nome Completo
+            </div>
+            <div id="dadoNomeParticipante" style="font-size: 15px; font-weight: 700; color: #0f172a;">-</div>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              🪪 CPF
+            </div>
+            <div id="dadoCpfParticipante" style="font-size: 15px; font-weight: 700; color: #0f172a;">-</div>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              ✉️ E-mail Cadastrado
+            </div>
+            <div id="dadoEmailParticipante" style="font-size: 15px; font-weight: 600; color: #0f172a; word-break: break-all;">-</div>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              📱 Telefone / WhatsApp
+            </div>
+            <div id="dadoTelefoneParticipante" style="font-size: 15px; font-weight: 600; color: #0f172a;">-</div>
+          </div>
+
+          <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+              🏢 Empresa / Instituição
+            </div>
+            <div id="dadoEmpresaParticipante" style="font-size: 15px; font-weight: 600; color: #0f172a;">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 22px; justify-content: flex-end;">
+        <button
+          type="button"
+          id="btnFecharModalDados"
+          class="btn-secundario-aluno"
+        >
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================= -->
+  <!-- MODAL / MÓDULO: CERTIFICADOS DE CONCLUSÃO               -->
+  <!-- ======================================================= -->
+  <div id="modalCertificados" class="modal-overlay" hidden style="display: none;">
+    <div class="modal-conteudo modal-conteudo-largo" style="position: relative; max-width: 960px;">
+      <button
+        type="button"
+        id="btnFecharModalCertificadosX"
+        class="btn-fechar-modal-x"
+        title="Fechar"
+      >
+        &times;
+      </button>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+        <span style="font-size: 26px; line-height: 1;">📜</span>
+        <div>
+          <h3 style="margin: 0; color: #0f172a; font-size: 20px;">Certificados de Conclusão</h3>
+          <p style="margin: 2px 0 0; font-size: 13px; color: #64748b;">
+            Documento oficial comprobatório com autenticidade digital e registro emitido pela Apassul
+          </p>
+        </div>
+      </div>
+
+      <!-- Estado 1: Certificado Disponível (Pagamento Confirmado / Concluído) -->
+      <div id="blocoCertificadoDisponivel" style="margin-top: 18px;" hidden>
+        <!-- Card de Certificado Visual com Medidas e Moldura Padrão A4 -->
+        <div id="documentoCertificado" class="certificado-visual-card">
+          <div class="certificado-moldura">
+            <div class="certificado-cabecalho">
+              <img src="logo-apassul.png" alt="Apassul" class="certificado-logo">
+              <div class="certificado-instituicao">
+                ASSOCIAÇÃO DOS PRODUTORES E COMERCIANTES DE SEMENTES E MUDAS DO RS
+              </div>
+              <div class="certificado-titulo">CERTIFICADO DE CONCLUSÃO</div>
+            </div>
+
+            <div class="certificado-corpo">
+              <p class="certificado-texto-declaracao">
+                Certificamos para os devidos fins que <strong id="certNomeAluno" class="destaque-aluno">[Nome do Participante]</strong>,
+                inscrito(a) sob o CPF nº <strong id="certCpfAluno">[000.000.000-00]</strong>,
+                concluiu com aproveitamento satisfatório o treinamento oficial:
+              </p>
+              <div id="certNomeCurso" class="certificado-nome-curso">[Nome do Treinamento]</div>
+              <p class="certificado-detalhes-texto">
+                Com carga horária total de <strong id="certCargaHoraria">--</strong>,
+                realizado em <strong id="certDataCurso">--</strong>.
+              </p>
+            </div>
+
+            <div class="certificado-rodape">
+              <div class="certificado-assinatura-bloco">
+                <div class="linha-assinatura"></div>
+                <div class="cargo-assinatura">Coordenação de Treinamentos</div>
+                <div class="inst-assinatura">Apassul - RS</div>
+              </div>
+              <div class="certificado-selo-bloco">
+                <div class="selo-icone">🛡️</div>
+                <div class="selo-texto">Autenticidade Digital Registrada</div>
+                <div id="certCodigoAutenticidade" class="selo-codigo">APS-2026-CERT-0000</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="blocoBotoesAcaoCertificado" style="display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+          <button
+            type="button"
+            id="btnCopiarCodigoCertificado"
+            class="btn-secundario-aluno"
+          >
+            📋 Copiar Código
+          </button>
+          <button
+            type="button"
+            id="btnImprimirCertificado"
+            class="btn-secundario-aluno"
+          >
+            🖨️ Imprimir
+          </button>
+          <button
+            type="button"
+            id="btnBaixarPDFCertificado"
+            class="btn-aluno-acao"
+          >
+            📥 Baixar em PDF
+          </button>
+          <button
+            type="button"
+            id="btnFecharModalCertificados"
+            class="btn-secundario-aluno"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+
+      <!-- Estado 2: Certificado Indisponível (Pendente de pagamento ou conclusão) -->
+      <div id="blocoCertificadoPendente" style="margin-top: 18px;" hidden>
+        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 32px 24px; text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 12px; line-height: 1;">⏳</div>
+          <h4 style="margin: 0 0 8px; color: #0f172a; font-size: 18px; font-weight: 700;">Certificado em Processamento</h4>
+          <p style="margin: 0 auto; max-width: 480px; font-size: 14px; color: #64748b; line-height: 1.5;">
+            O certificado oficial de conclusão com registro de autenticidade digital é liberado automaticamente neste módulo após a confirmação do pagamento e a realização do treinamento.
+          </p>
+          <div style="margin-top: 20px; display: inline-flex; align-items: center; gap: 8px; background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid #fde68a;">
+            🔒 Status: Aguardando Compensação Bancária / Conclusão
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 22px; justify-content: flex-end;">
+          <button
+            type="button"
+            id="btnFecharModalCertificadosPendente"
+            class="btn-secundario-aluno"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="html2pdf.bundle.min.js"></script>
   <script src="aluno.js"></script>
 </body>
 </html>

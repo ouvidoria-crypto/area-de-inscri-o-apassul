@@ -652,26 +652,13 @@ formulario.addEventListener("submit", async function (evento) {
       if (dados.id) {
         sessionStorage.setItem("inscricaoId", dados.id);
       }
-
-      // Se foi gerado o link do Mercado Pago (Pix ou Boleto)
-      if (dados.initPoint && !dados.modoSimulado) {
-        const textoOverlay = overlayConfirmacao.querySelector(".texto-confirmacao");
-        if (textoOverlay) {
-          textoOverlay.textContent = "Inscrição confirmada! Encaminhando para o Mercado Pago...";
-        }
-        overlayConfirmacao.hidden = false;
-        btnEnviar.disabled = true;
-        btnEnviar.textContent = "Redirecionando para o Mercado Pago...";
-
-        setTimeout(() => {
-          window.location.href = dados.initPoint;
-        }, 1000);
-        return;
+      if (dados.senhaTemporaria) {
+        sessionStorage.setItem("senhaTemporaria", dados.senhaTemporaria);
       }
 
-      // Se for modo simulado (sem token) ou Depósito Bancário
+      // [MODO DE TESTE: Inscrição confirmada diretamente sem exigência de pagamento]
       const urlConfirmacao = dados.id
-        ? `/inscricao-confirmada.html?id=${dados.id}${dados.modoSimulado ? "&aviso=mp_token_pendente" : ""}`
+        ? `/inscricao-confirmada.html?id=${dados.id}`
         : "/inscricao-confirmada.html";
       mostrarConfirmacao(urlConfirmacao);
     } else {
@@ -682,3 +669,51 @@ formulario.addEventListener("submit", async function (evento) {
     console.error(erro);
   }
 });
+
+// Garante que todo e qualquer e-mail na página seja exibido como link azul sublinhado
+(function formatarEmailsGlobais() {
+  function formatarEmails(container = document.body) {
+    if (!container) return;
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !emailRegex.test(node.nodeValue)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tag = parent.tagName.toLowerCase();
+          if (['script', 'style', 'textarea', 'input', 'a'].includes(tag) || parent.closest('a')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const nodes = [];
+    while (walker.nextNode()) {
+      nodes.push(walker.currentNode);
+    }
+
+    for (const node of nodes) {
+      const parent = node.parentNode;
+      if (!parent) continue;
+      const span = document.createElement('span');
+      span.innerHTML = node.nodeValue.replace(
+        emailRegex,
+        '<a href="mailto:$1" class="link-email">$1</a>'
+      );
+      parent.replaceChild(span, node);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => formatarEmails());
+  } else {
+    formatarEmails();
+  }
+})();

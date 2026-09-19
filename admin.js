@@ -98,7 +98,7 @@ async function carregarPainel() {
       linha.innerHTML = `
         <td><strong>${inscricao.nome}</strong></td>
         <td>${inscricao.empresa || "-"}</td>
-        <td><a href="mailto:${inscricao.email}">${inscricao.email}</a></td>
+        <td><a href="mailto:${inscricao.email}" class="link-email">${inscricao.email}</a></td>
         <td>${inscricao.telefone || "-"}</td>
         <td>${inscricao.cpf || "-"}</td>
         <td>${inscricao.curso}</td>
@@ -120,7 +120,7 @@ async function carregarPainel() {
               : '<span style="color: #94a3b8; font-size: 12px;">Liberado após pgto</span>'
           }
         </td>
-        <td>${inscricao.email_recibo || "-"}</td>
+        <td>${inscricao.email_recibo ? `<a href="mailto:${inscricao.email_recibo}" class="link-email">${inscricao.email_recibo}</a>` : "-"}</td>
         <td>${dataFormatada}</td>
         <td>
           <select class="select-status-admin" data-id="${inscricao.id}" aria-label="Alterar status de pagamento">
@@ -245,3 +245,51 @@ function exportarCSV() {
 }
 
 btnExportarCSV.addEventListener("click", exportarCSV);
+
+// Garante que todo e qualquer e-mail na página seja exibido como link azul sublinhado
+(function formatarEmailsGlobaisAdmin() {
+  function formatarEmails(container = document.body) {
+    if (!container) return;
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !emailRegex.test(node.nodeValue)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tag = parent.tagName.toLowerCase();
+          if (['script', 'style', 'textarea', 'input', 'a'].includes(tag) || parent.closest('a')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const nodes = [];
+    while (walker.nextNode()) {
+      nodes.push(walker.currentNode);
+    }
+
+    for (const node of nodes) {
+      const parent = node.parentNode;
+      if (!parent) continue;
+      const span = document.createElement('span');
+      span.innerHTML = node.nodeValue.replace(
+        emailRegex,
+        '<a href="mailto:$1" class="link-email">$1</a>'
+      );
+      parent.replaceChild(span, node);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => formatarEmails());
+  } else {
+    formatarEmails();
+  }
+})();

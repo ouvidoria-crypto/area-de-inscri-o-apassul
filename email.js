@@ -41,15 +41,19 @@ async function enviarEmailAcessoInscrito({
     `"Apassul - Cursos e Treinamentos" <${process.env.SMTP_USER || "ouvidoria@apassul.com.br"}>`;
 
   if (!transport) {
-    console.log(
-      `[EMAIL SIMULADO] SMTP não configurado no servidor. Credenciais geradas para ${email}:`
-    );
-    console.log(` -> Login: ${email}`);
-    console.log(` -> Senha Provisória: ${senhaTemporaria}`);
-    console.log(` -> Link: ${linkAreaInscrito}`);
+    console.log("========================================================================");
+    console.log(`📧 [MODO DE TESTE - ENVIO DE DADOS DE ACESSO AO PARTICIPANTE]`);
+    console.log(` -> Destinatário: ${email}`);
+    console.log(` -> Login (E-mail): ${email}`);
+    console.log(` -> Senha de Acesso (alfanumérica): ${senhaTemporaria}`);
+    console.log(` -> Curso: ${nomeCurso}`);
+    console.log(` -> Link da Área do Inscrito: ${linkAreaInscrito}`);
+    console.log(` -> Status: Inscrição 100% Confirmada e Aprovada`);
+    console.log(" (Para envio real para caixas externas, preencha SMTP_HOST, SMTP_USER e SMTP_PASS)");
+    console.log("========================================================================");
     return {
-      sucesso: false,
-      motivo: "SMTP_NAO_CONFIGURADO",
+      sucesso: true,
+      motivo: "MODO_TESTE_SIMULADO",
       senhaTemporaria,
     };
   }

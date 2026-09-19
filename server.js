@@ -25,6 +25,16 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "X-Requested-With,Content-Type,Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.static(__dirname));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -94,73 +104,47 @@ app.post("/inscricoes", async (req, res) => {
   }
 
   const valorInscricao = cursoInfo.preco || 3200.00;
+  const dataAtualIso = new Date().toISOString();
 
+  // [MODO DE TESTE: Inscrição confirmada automaticamente com status 'pago' ao preencher o formulário]
   const stmt = db.prepare(`
     INSERT INTO inscricoes
-      (nome, email, curso, data, empresa, telefone, cpf, metodo_pagamento, email_recibo, aceite_termos, vencimento_boleto, status_pagamento, valor)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (nome, email, curso, data, empresa, telefone, cpf, metodo_pagamento, email_recibo, aceite_termos, vencimento_boleto, status_pagamento, valor, data_pagamento)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const infoInsercao = stmt.run(
-    nome, email, curso, new Date().toISOString(),
+    nome, email, curso, dataAtualIso,
     empresa, telefone, cpf, metodoPagamento, emailRecibo,
     aceiteTermos ? 1 : 0,
     metodoPagamento === "boleto" ? (vencimentoBoleto || null) : null,
-    "pendente",
-    valorInscricao
+    "pago", // CONFIRMADO IMEDIATAMENTE PARA FINS DE TESTE
+    valorInscricao,
+    dataAtualIso
   );
 
   const inscricaoId = infoInsercao.lastInsertRowid;
 
-  console.log(`Nova inscrição em "${cursoInfo.nome}" (ID ${inscricaoId}):`, nome, email);
+  console.log(`[TESTE] Inscrição confirmada em "${cursoInfo.nome}" (ID ${inscricaoId}):`, nome, email);
 
-  // [LIBERAÇÃO E DISPARO DE E-MAIL IMEDIATO]
+  // [ENVIO IMEDIATO DE LOGIN E SENHA ALFANUMÉRICA PARA O E-MAIL CADASTRADO]
   let infoAcesso = null;
   try {
     const baseUrl = getBaseUrl(req);
     infoAcesso = await liberarAcessoInscrito(db, inscricaoId, baseUrl);
-    console.log(`[Inscrição ID ${inscricaoId}] Credenciais geradas para ${email}. Status e-mail: ${infoAcesso.emailEnviado ? "ENVIADO VIA SMTP" : "SIMULADO/AGUARDANDO SMTP"}`);
+    console.log(`[TESTE - Inscrição ID ${inscricaoId}] Login (${email}) e senha alfanumérica (${infoAcesso.senhaGerada}) disparados para ${email}. Status: ${infoAcesso.emailEnviado ? "ENVIADO VIA SMTP" : "REGISTRADO NO SISTEMA"}`);
   } catch (errLiberacao) {
     console.error("[Erro Liberação Imediata]:", errLiberacao.message);
-  }
-
-  // Integração com Mercado Pago: criação de preferência e redirecionamento direto
-  let initPoint = null;
-  let modoSimulado = false;
-
-  if (metodoPagamento === "pix" || metodoPagamento === "boleto") {
-    try {
-      const baseUrl = getBaseUrl(req);
-      const resultadoMP = await criarPreferenciaPagamento({
-        inscricaoId,
-        curso: cursoInfo,
-        participante: { nome, email, telefone, cpf },
-        metodoPagamento,
-        vencimentoBoleto,
-        baseUrl,
-      });
-
-      modoSimulado = Boolean(resultadoMP.modoSimulado);
-      initPoint = resultadoMP.init_point || resultadoMP.sandbox_init_point;
-
-      if (resultadoMP.id || initPoint) {
-        db.prepare(`
-          UPDATE inscricoes
-          SET mp_preference_id = ?, mp_init_point = ?
-          WHERE id = ?
-        `).run(resultadoMP.id || null, initPoint || null, inscricaoId);
-      }
-    } catch (errMP) {
-      console.error("Aviso: Falha ao gerar preferência do Mercado Pago:", errMP.message);
-    }
   }
 
   res.json({
     sucesso: true,
     id: inscricaoId,
     metodoPagamento,
-    initPoint,
-    modoSimulado,
+    statusPagamento: "pago",
+    email,
+    initPoint: null,
+    modoSimulado: true,
     emailEnviado: infoAcesso?.emailEnviado || false,
     senhaTemporaria: infoAcesso?.senhaGerada || null,
   });
@@ -172,7 +156,7 @@ app.get("/inscricoes/:id", (req, res) => {
   const inscricao = db.prepare(`
     SELECT inscricoes.id, inscricoes.nome, inscricoes.email, inscricoes.metodo_pagamento,
            inscricoes.vencimento_boleto, inscricoes.status_pagamento, inscricoes.valor,
-           inscricoes.mp_init_point, cursos.nome AS nome_curso
+           inscricoes.mp_init_point, inscricoes.senha_plana_inicial, cursos.nome AS nome_curso
     FROM inscricoes
     JOIN cursos ON cursos.id = inscricoes.curso
     WHERE inscricoes.id = ?
@@ -243,6 +227,10 @@ app.all("/webhook/mercadopago", async (req, res) => {
 
   // Mercado Pago espera status 200/201 como confirmação de recebimento
   res.status(200).send("OK");
+});
+
+app.get("/admin", (req, res) => {
+  res.redirect("/admin.html");
 });
 
 app.get("/admin/inscricoes", protegerAdmin, (req, res) => {

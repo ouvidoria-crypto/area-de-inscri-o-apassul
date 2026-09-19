@@ -49,6 +49,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnFecharModalX = document.getElementById("btnFecharModalX");
   const btnVoltarLoginModal = document.getElementById("btnVoltarLoginModal");
 
+  // Módulos: Status da Inscrição e Dados Cadastrais
+  const modalStatusInscricao = document.getElementById("modalStatusInscricao");
+  const modalDadosCadastrais = document.getElementById("modalDadosCadastrais");
+  const btnFecharModalStatusX = document.getElementById("btnFecharModalStatusX");
+  const btnFecharModalStatus = document.getElementById("btnFecharModalStatus");
+  const btnFecharModalDadosX = document.getElementById("btnFecharModalDadosX");
+  const btnFecharModalDados = document.getElementById("btnFecharModalDados");
+  const statusTreinamentoTexto = document.getElementById("statusTreinamentoTexto");
+  const statusAcessoAulasTexto = document.getElementById("statusAcessoAulasTexto");
+
+  // Módulo: Certificados de Conclusão
+  const modalCertificados = document.getElementById("modalCertificados");
+  const blocoCertificadoDisponivel = document.getElementById("blocoCertificadoDisponivel");
+  const blocoCertificadoPendente = document.getElementById("blocoCertificadoPendente");
+  const certNomeAluno = document.getElementById("certNomeAluno");
+  const certCpfAluno = document.getElementById("certCpfAluno");
+  const certNomeCurso = document.getElementById("certNomeCurso");
+  const certCargaHoraria = document.getElementById("certCargaHoraria");
+  const certDataCurso = document.getElementById("certDataCurso");
+  const certCodigoAutenticidade = document.getElementById("certCodigoAutenticidade");
+  const btnCopiarCodigoCertificado = document.getElementById("btnCopiarCodigoCertificado");
+  const btnImprimirCertificado = document.getElementById("btnImprimirCertificado");
+  const btnBaixarPDFCertificado = document.getElementById("btnBaixarPDFCertificado");
+  const btnFecharModalCertificadosX = document.getElementById("btnFecharModalCertificadosX");
+  const btnFecharModalCertificados = document.getElementById("btnFecharModalCertificados");
+  const btnFecharModalCertificadosPendente = document.getElementById("btnFecharModalCertificadosPendente");
+  const btnSidebarCertificados = document.getElementById("btnSidebarCertificados");
+
   // Sessão ativa: usa apenas sessionStorage para que novas abas sempre peçam login primeiro
   let tokenAtual = sessionStorage.getItem("token_aluno_apassul");
   // Limpa resíduos anteriores de localStorage para garantir que a tela de login apareça primeiro
@@ -58,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Garante que o modal de troca de senha esteja fechado ao iniciar a página
   if (modalTrocaSenha) {
     modalTrocaSenha.hidden = true;
+    modalTrocaSenha.style.display = "none";
   }
 
   function formatarDataHora(iso) {
@@ -83,13 +112,58 @@ document.addEventListener("DOMContentLoaded", () => {
     msgSucessoModalSenha.hidden = true;
   }
 
+  function configurarEstadoLogado() {
+    document.body.classList.remove("usuario-deslogado");
+    document.body.classList.add("usuario-logado");
+    if (sidebarYoutube) {
+      sidebarYoutube.hidden = false;
+      // A barra lateral inicia SEMPRE fechada (mantém apenas os ícones)
+      sidebarYoutube.classList.add("recolhida");
+      sidebarYoutube.classList.remove("aberta-mobile");
+      if (conteudoPrincipalApp) {
+        conteudoPrincipalApp.classList.add("expandido");
+      }
+    }
+    if (btnToggleSidebar) {
+      btnToggleSidebar.hidden = false;
+      btnToggleSidebar.setAttribute("aria-expanded", "false");
+    }
+    if (overlaySidebarBackdrop) {
+      overlaySidebarBackdrop.classList.remove("visivel");
+    }
+  }
+
+  function configurarEstadoDeslogado() {
+    document.body.classList.remove("usuario-logado");
+    document.body.classList.add("usuario-deslogado");
+    if (sidebarYoutube) {
+      sidebarYoutube.hidden = true;
+      sidebarYoutube.classList.remove("aberta-mobile");
+      sidebarYoutube.classList.add("recolhida");
+    }
+    if (conteudoPrincipalApp) {
+      conteudoPrincipalApp.classList.remove("expandido");
+    }
+    if (btnToggleSidebar) {
+      btnToggleSidebar.hidden = true;
+      btnToggleSidebar.setAttribute("aria-expanded", "false");
+    }
+    if (overlaySidebarBackdrop) {
+      overlaySidebarBackdrop.classList.remove("visivel");
+    }
+  }
+
   function irParaLogin(mensagemErro = "") {
-    if (modalTrocaSenha) modalTrocaSenha.hidden = true;
+    if (modalTrocaSenha) {
+      modalTrocaSenha.hidden = true;
+      modalTrocaSenha.style.display = "none";
+    }
     tokenAtual = null;
     sessionStorage.removeItem("token_aluno_apassul");
     localStorage.removeItem("token_aluno_apassul");
     secaoPainelAluno.hidden = true;
     secaoLogin.hidden = false;
+    configurarEstadoDeslogado();
     ocultarMensagens();
     if (mensagemErro) {
       mostrarErro(msgErroLogin, mensagemErro);
@@ -99,7 +173,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function carregarPainel() {
-    if (modalTrocaSenha) modalTrocaSenha.hidden = true;
+    if (modalTrocaSenha) {
+      modalTrocaSenha.hidden = true;
+      modalTrocaSenha.style.display = "none";
+    }
 
     if (!tokenAtual) {
       irParaLogin();
@@ -122,6 +199,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Renderiza os dados no painel
       saudacaoNomeAluno.textContent = `Olá, ${dados.nome.split(" ")[0]}!`;
+      const avatarAlunoTopo = document.getElementById("avatarAlunoTopo");
+      if (avatarAlunoTopo) {
+        const primeiroNome = dados.nome.trim();
+        avatarAlunoTopo.textContent = primeiroNome ? primeiroNome.charAt(0).toUpperCase() : "🎓";
+      }
       tituloNomeCurso.textContent = dados.curso?.nome || "Treinamento Apassul";
       descricaoCursoAluno.innerHTML = dados.curso?.descricao || "Treinamento oficial credenciado Apassul.";
       dadoDataCurso.textContent = dados.curso?.data_evento || "A definir";
@@ -148,6 +230,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (badgeMatriculaConfirmada) {
         badgeMatriculaConfirmada.textContent = "✓ Inscrição Confirmada";
+      }
+
+      if (statusTreinamentoTexto) {
+        statusTreinamentoTexto.textContent = dados.curso?.nome || "Treinamento Apassul";
+      }
+
+      if (statusAcessoAulasTexto) {
+        statusAcessoAulasTexto.textContent = isPago ? "✓ Liberado (Sala ao vivo ativa)" : "🔒 Bloqueado (Aguardando compensação)";
+        statusAcessoAulasTexto.style.color = isPago ? "#2e6b3e" : "#b45309";
       }
 
       // Configura a ÁREA DO CURSO dependendo se está Pago ou Pendente
@@ -179,12 +270,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
       dadoNomeParticipante.textContent = dados.nome || "-";
       dadoCpfParticipante.textContent = dados.cpf || "-";
-      dadoEmailParticipante.textContent = dados.email || "-";
+      if (dados.email) {
+        dadoEmailParticipante.innerHTML = `<a href="mailto:${dados.email}" class="link-email">${dados.email}</a>`;
+      } else {
+        dadoEmailParticipante.textContent = "-";
+      }
       dadoTelefoneParticipante.textContent = dados.telefone || "-";
       dadoEmpresaParticipante.textContent = dados.empresa || "Pessoa Física / Não informada";
 
       secaoLogin.hidden = true;
       secaoPainelAluno.hidden = false;
+      configurarEstadoLogado();
+
+      // Atualiza os dados do módulo de certificado
+      renderizarCertificado(dados);
 
       // Se for primeiro acesso com senha provisória, exibe o aviso em destaque no painel
       if (bannerSenhaProvisoria) {
@@ -194,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Erro ao carregar dados do aluno:", err);
       secaoLogin.hidden = false;
       secaoPainelAluno.hidden = true;
+      configurarEstadoDeslogado();
     }
   }
 
@@ -216,12 +316,112 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     modalTrocaSenha.hidden = false;
+    modalTrocaSenha.style.display = "flex";
     inputNovaSenha.focus();
   }
 
   function fecharModalTrocaSenha() {
-    modalTrocaSenha.hidden = true;
+    if (modalTrocaSenha) {
+      modalTrocaSenha.hidden = true;
+      modalTrocaSenha.style.display = "none";
+    }
   }
+
+  function abrirModalStatusInscricao() {
+    if (modalStatusInscricao) {
+      modalStatusInscricao.hidden = false;
+      modalStatusInscricao.style.display = "flex";
+    }
+  }
+
+  function fecharModalStatusInscricao() {
+    if (modalStatusInscricao) {
+      modalStatusInscricao.hidden = true;
+      modalStatusInscricao.style.display = "none";
+    }
+  }
+
+  function abrirModalDadosCadastrais() {
+    if (modalDadosCadastrais) {
+      modalDadosCadastrais.hidden = false;
+      modalDadosCadastrais.style.display = "flex";
+    }
+  }
+
+  function fecharModalDadosCadastrais() {
+    if (modalDadosCadastrais) {
+      modalDadosCadastrais.hidden = true;
+      modalDadosCadastrais.style.display = "none";
+    }
+  }
+
+  function renderizarCertificado(dados) {
+    if (!dados) return;
+    const isPago = dados.status_pagamento === "pago";
+
+    if (isPago) {
+      if (blocoCertificadoDisponivel) {
+        blocoCertificadoDisponivel.hidden = false;
+        blocoCertificadoDisponivel.style.display = "block";
+      }
+      if (blocoCertificadoPendente) {
+        blocoCertificadoPendente.hidden = true;
+        blocoCertificadoPendente.style.display = "none";
+      }
+
+      if (certNomeAluno) certNomeAluno.textContent = (dados.nome || "Participante").trim();
+      if (certCpfAluno) certCpfAluno.textContent = dados.cpf || "000.000.000-00";
+      if (certNomeCurso) certNomeCurso.textContent = dados.curso?.nome || "Treinamento Apassul";
+      if (certCargaHoraria) certCargaHoraria.textContent = dados.curso?.carga_horaria || "Carga horária oficial";
+      if (certDataCurso) certDataCurso.textContent = dados.curso?.data_evento || "Edição Oficial 2026";
+
+      const idSufixo = dados.id ? String(dados.id).slice(0, 4).toUpperCase() : "2026";
+      const cpfSufixo = dados.cpf ? String(dados.cpf).replace(/\D/g, "").slice(-4) : "0000";
+      if (certCodigoAutenticidade) {
+        certCodigoAutenticidade.textContent = `APS-2026-${idSufixo}-${cpfSufixo}`;
+      }
+    } else {
+      if (blocoCertificadoDisponivel) {
+        blocoCertificadoDisponivel.hidden = true;
+        blocoCertificadoDisponivel.style.display = "none";
+      }
+      if (blocoCertificadoPendente) {
+        blocoCertificadoPendente.hidden = false;
+        blocoCertificadoPendente.style.display = "block";
+      }
+    }
+  }
+
+  async function abrirModalCertificados() {
+    if (!dadosAlunoCache && tokenAtual) {
+      try {
+        await carregarPainel();
+      } catch (e) {
+        console.error("Erro ao carregar dados para o certificado:", e);
+      }
+    }
+    if (dadosAlunoCache) {
+      renderizarCertificado(dadosAlunoCache);
+    }
+    if (modalCertificados) {
+      modalCertificados.hidden = false;
+      modalCertificados.style.display = "flex";
+    }
+  }
+
+  function fecharModalCertificados() {
+    if (modalCertificados) {
+      modalCertificados.hidden = true;
+      modalCertificados.style.display = "none";
+    }
+  }
+
+  window.abrirModuloStatusInscricao = abrirModalStatusInscricao;
+  window.fecharModalStatusInscricao = fecharModalStatusInscricao;
+  window.abrirModuloDadosCadastrais = abrirModalDadosCadastrais;
+  window.fecharModalDadosCadastrais = fecharModalDadosCadastrais;
+  window.abrirModuloCertificados = abrirModalCertificados;
+  window.fecharModuloCertificados = fecharModalCertificados;
 
   // Submit Login
   formLoginAluno.addEventListener("submit", async (e) => {
@@ -356,19 +556,231 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnVoltarLoginModal) {
     btnVoltarLoginModal.addEventListener("click", () => {
+      fecharModalTrocaSenha();
       irParaLogin();
     });
   }
 
-  btnAbrirTrocaSenha.addEventListener("click", () => abrirModalTrocaSenha(false));
+  // Fechar ao clicar no fundo escuro (fora da caixinha do modal)
+  if (modalTrocaSenha) {
+    modalTrocaSenha.addEventListener("click", (e) => {
+      if (e.target === modalTrocaSenha) {
+        fecharModalTrocaSenha();
+        if (secaoPainelAluno.hidden) {
+          irParaLogin();
+        }
+      }
+    });
+  }
+
+  if (modalStatusInscricao) {
+    modalStatusInscricao.addEventListener("click", (e) => {
+      if (e.target === modalStatusInscricao) {
+        fecharModalStatusInscricao();
+      }
+    });
+  }
+
+  if (modalDadosCadastrais) {
+    modalDadosCadastrais.addEventListener("click", (e) => {
+      if (e.target === modalDadosCadastrais) {
+        fecharModalDadosCadastrais();
+      }
+    });
+  }
+
+  if (modalCertificados) {
+    modalCertificados.addEventListener("click", (e) => {
+      if (e.target === modalCertificados) {
+        fecharModalCertificados();
+      }
+    });
+  }
+
+  if (btnFecharModalStatusX) btnFecharModalStatusX.addEventListener("click", fecharModalStatusInscricao);
+  if (btnFecharModalStatus) btnFecharModalStatus.addEventListener("click", fecharModalStatusInscricao);
+  if (btnFecharModalDadosX) btnFecharModalDadosX.addEventListener("click", fecharModalDadosCadastrais);
+  if (btnFecharModalDados) btnFecharModalDados.addEventListener("click", fecharModalDadosCadastrais);
+  if (btnFecharModalCertificadosX) btnFecharModalCertificadosX.addEventListener("click", fecharModalCertificados);
+  if (btnFecharModalCertificados) btnFecharModalCertificados.addEventListener("click", fecharModalCertificados);
+  if (btnFecharModalCertificadosPendente) btnFecharModalCertificadosPendente.addEventListener("click", fecharModalCertificados);
+
+  // Fechar ao apertar a tecla ESC
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (modalTrocaSenha && !modalTrocaSenha.hidden && modalTrocaSenha.style.display !== "none") {
+        fecharModalTrocaSenha();
+        if (secaoPainelAluno.hidden) {
+          irParaLogin();
+        }
+      }
+      if (modalStatusInscricao && !modalStatusInscricao.hidden && modalStatusInscricao.style.display !== "none") {
+        fecharModalStatusInscricao();
+      }
+      if (modalDadosCadastrais && !modalDadosCadastrais.hidden && modalDadosCadastrais.style.display !== "none") {
+        fecharModalDadosCadastrais();
+      }
+      if (modalCertificados && !modalCertificados.hidden && modalCertificados.style.display !== "none") {
+        fecharModalCertificados();
+      }
+    }
+  });
+
+  if (btnSidebarCertificados) {
+    btnSidebarCertificados.addEventListener("click", abrirModalCertificados);
+  }
+
+  if (btnCopiarCodigoCertificado) {
+    btnCopiarCodigoCertificado.addEventListener("click", () => {
+      const cod = certCodigoAutenticidade ? certCodigoAutenticidade.textContent.trim() : "";
+      if (cod) {
+        navigator.clipboard.writeText(cod).then(() => {
+          const textoOriginal = btnCopiarCodigoCertificado.innerHTML;
+          btnCopiarCodigoCertificado.innerHTML = "✓ Código Copiado!";
+          setTimeout(() => {
+            btnCopiarCodigoCertificado.innerHTML = textoOriginal;
+          }, 2000);
+        }).catch(() => {
+          // Fallback se clipboard api falhar
+        });
+      }
+    });
+  }
+
+  async function baixarCertificadoPDF() {
+    const docElemento = document.getElementById("documentoCertificado");
+    if (!docElemento) return;
+
+    if (dadosAlunoCache) {
+      renderizarCertificado(dadosAlunoCache);
+    }
+
+    const btn = btnBaixarPDFCertificado;
+    const txtOriginal = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = "⏳ Gerando PDF Oficial A4...";
+    }
+
+    const nomeRaw = (certNomeAluno?.textContent || "Participante").trim();
+    const nomeLimpo = nomeRaw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "_");
+
+    const nomeArquivo = `Certificado_Apassul_${nomeLimpo || "Aluno"}.pdf`;
+
+    if (window.html2pdf) {
+      // Medidas Oficiais de Certificado A4 Horizontal:
+      // Formato A4 Paisagem (297mm x 210mm) com margem uniforme de 10mm (1cm)
+      // Enquadramento simétrico perfeito garantindo que todo o conteúdo e as bordas caibam em 1 única folha
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: nomeArquivo,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          logging: false
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+      };
+
+      try {
+        await window.html2pdf().set(opt).from(docElemento).save();
+        if (btn) {
+          btn.innerHTML = "✓ Download Concluído!";
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = txtOriginal;
+          }, 2500);
+        }
+        return;
+      } catch (err) {
+        console.error("Erro ao gerar PDF via html2pdf:", err);
+      }
+    }
+
+    // Fallback caso html2pdf não execute no ambiente
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = txtOriginal;
+    }
+    executarImpressaoCertificado();
+  }
+
+    // Fallback caso html2pdf não execute no ambiente
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = txtOriginal;
+    }
+    executarImpressaoCertificado();
+  }
+
+  function executarImpressaoCertificado() {
+    if (dadosAlunoCache) {
+      renderizarCertificado(dadosAlunoCache);
+    }
+
+    if (modalCertificados) {
+      modalCertificados.hidden = false;
+      modalCertificados.style.display = "block";
+    }
+    if (blocoCertificadoDisponivel) {
+      blocoCertificadoDisponivel.hidden = false;
+      blocoCertificadoDisponivel.style.display = "block";
+    }
+
+    document.body.classList.add("imprimindo-somente-certificado");
+
+    const limparModoImpressao = () => {
+      document.body.classList.remove("imprimindo-somente-certificado");
+      window.removeEventListener("afterprint", limparModoImpressao);
+    };
+
+    window.addEventListener("afterprint", limparModoImpressao, { once: true });
+
+    // Pequeno atraso para garantir que a estilização de impressão seja aplicada
+    setTimeout(() => {
+      window.print();
+      setTimeout(limparModoImpressao, 2500);
+    }, 150);
+  }
+
+  if (btnBaixarPDFCertificado) {
+    btnBaixarPDFCertificado.addEventListener("click", baixarCertificadoPDF);
+  }
+
+  if (btnImprimirCertificado) {
+    btnImprimirCertificado.addEventListener("click", executarImpressaoCertificado);
+  }
+
+  if (btnAbrirTrocaSenha) {
+    btnAbrirTrocaSenha.addEventListener("click", () => abrirModalTrocaSenha(false));
+  }
+  const btnSidebarTrocarSenha = document.getElementById("btnSidebarTrocarSenha");
+  if (btnSidebarTrocarSenha) {
+    btnSidebarTrocarSenha.addEventListener("click", () => abrirModalTrocaSenha(false));
+  }
+
   if (btnCadastrarSenhaDefinitivaBanner) {
     btnCadastrarSenhaDefinitivaBanner.addEventListener("click", () => abrirModalTrocaSenha(true));
   }
 
   // Imprimir Comprovante
-  btnImprimirComprovante.addEventListener("click", () => {
-    window.print();
-  });
+  if (btnImprimirComprovante) {
+    btnImprimirComprovante.addEventListener("click", () => {
+      window.print();
+    });
+  }
+  const btnSidebarComprovante = document.getElementById("btnSidebarComprovante");
+  if (btnSidebarComprovante) {
+    btnSidebarComprovante.addEventListener("click", () => {
+      window.print();
+    });
+  }
 
   // Botões de teste rápido (Simular Pago / Simular Pendente)
   async function alternarStatusTeste(novoStatus) {
@@ -398,7 +810,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Logout
-  btnSairAluno.addEventListener("click", async () => {
+  async function fazerLogout() {
     if (tokenAtual) {
       try {
         await fetch("/api/aluno/logout", {
@@ -415,8 +827,156 @@ document.addEventListener("DOMContentLoaded", () => {
     secaoPainelAluno.hidden = true;
     secaoLogin.hidden = false;
     inputSenhaAluno.value = "";
-  });
+    fecharModalStatusInscricao();
+    fecharModalDadosCadastrais();
+    fecharModalCertificados();
+    fecharModalTrocaSenha();
+    configurarEstadoDeslogado();
+  }
+
+  if (btnSairAluno) {
+    btnSairAluno.addEventListener("click", fazerLogout);
+  }
+  const btnSidebarSair = document.getElementById("btnSidebarSair");
+  if (btnSidebarSair) {
+    btnSidebarSair.addEventListener("click", fazerLogout);
+  }
+
+  window.fazerLogout = fazerLogout;
+  window.abrirModalTrocaSenha = abrirModalTrocaSenha;
+
+  // ==========================================================
+  // CONTROLE DA BARRA LATERAL ESTILO YOUTUBE (3 BARRINHAS)
+  // E DA LINHA HORIZONTAL CONGELADA
+  // ==========================================================
+  const btnToggleSidebar = document.getElementById("btnToggleSidebar");
+  const sidebarYoutube = document.getElementById("sidebarYoutube");
+  const conteudoPrincipalApp = document.getElementById("conteudoPrincipalApp");
+  const overlaySidebarBackdrop = document.getElementById("overlaySidebarBackdrop");
+  const topbarCongelada = document.getElementById("topbarCongelada");
+
+  function alternarSidebar() {
+    const isMobile = window.innerWidth <= 900;
+    if (isMobile) {
+      const aberta = sidebarYoutube.classList.toggle("aberta-mobile");
+      overlaySidebarBackdrop.classList.toggle("visivel", aberta);
+      if (btnToggleSidebar) {
+        btnToggleSidebar.setAttribute("aria-expanded", String(aberta));
+      }
+    } else {
+      const recolhida = sidebarYoutube.classList.toggle("recolhida");
+      conteudoPrincipalApp.classList.toggle("expandido", recolhida);
+      if (btnToggleSidebar) {
+        btnToggleSidebar.setAttribute("aria-expanded", String(!recolhida));
+      }
+    }
+  }
+
+  if (btnToggleSidebar) {
+    btnToggleSidebar.addEventListener("click", alternarSidebar);
+  }
+
+  if (overlaySidebarBackdrop) {
+    overlaySidebarBackdrop.addEventListener("click", () => {
+      sidebarYoutube.classList.remove("aberta-mobile");
+      overlaySidebarBackdrop.classList.remove("visivel");
+    });
+  }
+
+  // Linha horizontal congelada com sombra adaptativa ao rolar
+  window.addEventListener("scroll", () => {
+    if (topbarCongelada) {
+      topbarCongelada.classList.toggle("comprimida", window.scrollY > 10);
+    }
+  }, { passive: true });
+
+  // Função global para navegar suavemente entre os cards pelo menu lateral
+  window.navegarParaSecao = function(idAlvo) {
+    if (window.innerWidth <= 900) {
+      sidebarYoutube.classList.remove("aberta-mobile");
+      overlaySidebarBackdrop.classList.remove("visivel");
+    }
+
+    if (idAlvo === "cardDadosParticipante" || idAlvo === "modalDadosCadastrais") {
+      abrirModalDadosCadastrais();
+      return;
+    }
+
+    if (idAlvo === "cardStatusInscricao" || idAlvo === "modalStatusInscricao") {
+      abrirModalStatusInscricao();
+      return;
+    }
+
+    // Atualiza classe ativa dos botões do menu
+    document.querySelectorAll(".item-nav-btn").forEach(btn => btn.classList.remove("ativo"));
+    const btnAtivo = typeof event !== "undefined" && event && event.currentTarget;
+    if (btnAtivo) {
+      btnAtivo.classList.add("ativo");
+    }
+
+    const elemento = document.getElementById(idAlvo);
+    if (elemento) {
+      elemento.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   // Inicializa
-  carregarPainel();
+  const emailParam = new URLSearchParams(window.location.search).get("email") || sessionStorage.getItem("emailParticipante");
+  if (emailParam && inputEmailAluno && !inputEmailAluno.value) {
+    inputEmailAluno.value = emailParam;
+  }
+  const senhaParam = sessionStorage.getItem("senhaTemporaria");
+  if (senhaParam && inputSenhaAluno && !inputSenhaAluno.value) {
+    inputSenhaAluno.value = senhaParam;
+  }
+
+  if (tokenAtual) {
+    carregarPainel();
+  } else {
+    configurarEstadoDeslogado();
+  }
+
+  // Formata automaticamente qualquer e-mail encontrado em texto como link azul sublinhado
+  function formatarEmailsTexto(container = document.body) {
+    if (!container) return;
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !emailRegex.test(node.nodeValue)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tag = parent.tagName.toLowerCase();
+          if (['script', 'style', 'textarea', 'input', 'a'].includes(tag) || parent.closest('a')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const nodes = [];
+    while (walker.nextNode()) {
+      nodes.push(walker.currentNode);
+    }
+
+    for (const node of nodes) {
+      const parent = node.parentNode;
+      if (!parent) continue;
+      const span = document.createElement('span');
+      span.innerHTML = node.nodeValue.replace(
+        emailRegex,
+        '<a href="mailto:$1" class="link-email">$1</a>'
+      );
+      parent.replaceChild(span, node);
+    }
+  }
+
+  formatarEmailsTexto();
+  const observerEmails = new MutationObserver(() => formatarEmailsTexto());
+  observerEmails.observe(document.body, { childList: true, subtree: true });
 });
