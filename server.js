@@ -1,4 +1,5 @@
 require("dotenv").config();
+const crypto = require("crypto");
 const express = require("express");
 const basicAuth = require("express-basic-auth");
 const db = require("./db");
@@ -14,7 +15,26 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASS = process.env.ADMIN_PASS || "apassul2026";
+
+// IMPORTANTE: antes havia uma senha fixa aqui no código ("apassul2026") usada
+// sempre que a variável de ambiente ADMIN_PASS não estivesse configurada no
+// servidor. Isso é um risco de segurança sério: qualquer pessoa que veja este
+// arquivo (por exemplo, se o repositório do projeto for visto por alguém)
+// passa a conhecer a senha do painel admin, que tem CPF e dados de todos os
+// inscritos. Agora, se ADMIN_PASS não estiver configurada, o servidor gera uma
+// senha aleatória só para essa execução e avisa nos logs - o site continua
+// funcionando, mas ninguém de fora consegue adivinhar a senha do admin.
+let ADMIN_PASS = process.env.ADMIN_PASS;
+if (!ADMIN_PASS || !ADMIN_PASS.trim()) {
+  ADMIN_PASS = crypto.randomBytes(12).toString("base64url");
+  console.warn("=".repeat(72));
+  console.warn("[AVISO DE SEGURANÇA] A variável de ambiente ADMIN_PASS não foi configurada.");
+  console.warn(`Uma senha temporária foi gerada só para esta execução do servidor: ${ADMIN_PASS}`);
+  console.warn("Ela muda toda vez que o servidor reiniciar (por exemplo, a cada novo deploy).");
+  console.warn("Configure ADMIN_USER e ADMIN_PASS nas variáveis de ambiente do Render");
+  console.warn("para o painel admin ter uma senha fixa e definida por você.");
+  console.warn("=".repeat(72));
+}
 
 function getBaseUrl(req) {
   if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
@@ -234,8 +254,73 @@ app.get("/inscricoes/:id", (req, res) => {
   });
 });
 
+// Confere se a notificação do webhook realmente veio do Mercado Pago,
+// seguindo o formato oficial deles: o cabeçalho "x-signature" chega como
+// "ts=169...,v1=<assinatura>", e "v1" é um HMAC-SHA256 calculado sobre um
+// texto padrão ("manifesto") usando o segredo do webhook configurado no
+// painel do Mercado Pago. Recalculamos essa mesma assinatura aqui e
+// comparamos com a que veio na requisição - se não bater, a notificação não
+// é confiável (pode ter sido forjada por qualquer pessoa que soubesse o id
+// de uma inscrição) e é rejeitada.
+function verificarAssinaturaWebhookMP(req) {
+  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+
+  // Sem o segredo configurado no ambiente não tem como validar - a notificação
+  // é aceita mesmo assim (pra não travar o fluxo de quem ainda não configurou
+  // isso), mas fica um aviso bem visível no log.
+  if (!secret || !secret.trim()) {
+    console.warn(
+      "[Webhook Mercado Pago] MERCADO_PAGO_WEBHOOK_SECRET não configurado - " +
+      "aceitando a notificação SEM validar a assinatura. Configure essa variável " +
+      "(disponível no painel do Mercado Pago, nas configurações do webhook) para proteger essa rota."
+    );
+    return true;
+  }
+
+  const assinatura = req.headers["x-signature"];
+  const requestId = req.headers["x-request-id"];
+  const dataId = req.query?.["data.id"];
+
+  if (!assinatura || !requestId || !dataId) {
+    console.warn("[Webhook Mercado Pago] Notificação sem os cabeçalhos de assinatura esperados - rejeitada.");
+    return false;
+  }
+
+  const partes = {};
+  assinatura.split(",").forEach((parte) => {
+    const [chave, valor] = parte.split("=");
+    if (chave && valor) partes[chave.trim()] = valor.trim();
+  });
+
+  const { ts, v1: assinaturaRecebida } = partes;
+  if (!ts || !assinaturaRecebida) {
+    console.warn("[Webhook Mercado Pago] Cabeçalho x-signature em formato inesperado - rejeitada.");
+    return false;
+  }
+
+  const idParaManifesto = String(dataId).toLowerCase();
+  const manifesto = `id:${idParaManifesto};request-id:${requestId};ts:${ts};`;
+  const assinaturaCalculada = crypto
+    .createHmac("sha256", secret.trim())
+    .update(manifesto)
+    .digest("hex");
+
+  const bufferRecebido = Buffer.from(assinaturaRecebida, "utf8");
+  const bufferCalculado = Buffer.from(assinaturaCalculada, "utf8");
+
+  // "timingSafeEqual" compara os dois textos sem vazar, pelo tempo gasto na
+  // comparação, pistas sobre onde a assinatura recebida diverge da correta -
+  // por isso não usamos simplesmente "===" aqui.
+  if (bufferRecebido.length !== bufferCalculado.length) return false;
+  return crypto.timingSafeEqual(bufferRecebido, bufferCalculado);
+}
+
 // Webhook do Mercado Pago para confirmação automática de pagamentos (Pix e Boleto)
 app.all("/webhook/mercadopago", async (req, res) => {
+  if (!verificarAssinaturaWebhookMP(req)) {
+    return res.status(401).send("Assinatura inválida.");
+  }
+
   const paymentId =
     req.body?.data?.id ||
     req.body?.id ||
