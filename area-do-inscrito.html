@@ -9,6 +9,7 @@
   <meta property="og:description" content="Portal oficial do aluno e participante dos treinamentos da Apassul">
   <meta property="og:image" content="logo-apassul.png">
   <meta property="og:site_name" content="APASSUL">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1448,6 +1449,12 @@
             </a>
           </li>
           <li>
+            <a href="/politica-de-privacidade.html" class="item-nav-btn" title="Política de Privacidade" target="_blank" rel="noopener noreferrer">
+              <span class="item-nav-icone">🔒</span>
+              <span class="item-nav-texto">Política de Privacidade</span>
+            </a>
+          </li>
+          <li>
             <button type="button" class="item-nav-btn" id="btnSidebarSair" title="Sair da Conta" style="color: #b91c1c;" onclick="fazerLogout()">
               <span class="item-nav-icone">🚪</span>
               <span class="item-nav-texto">Sair da Conta</span>
@@ -1525,6 +1532,80 @@
 
             <button type="submit" id="btnEntrarAluno" class="btn-aluno-acao" style="margin-top: 8px;">
               Entrar no Painel do Inscrito
+            </button>
+          </form>
+
+          <p style="text-align: center; margin: 12px 0 0;">
+            <a href="#" id="linkEsqueciSenha" class="link-email" style="font-size: 13px;">Esqueceu sua senha?</a>
+          </p>
+        </div>
+
+        <!-- Painel "Esqueci minha senha": a pessoa informa o CPF e recebe por
+             e-mail um link exclusivo (token com expiração curta) pra trocar a
+             senha - o mesmo "link mágico" usado por sites de banco e afins. -->
+        <div id="painelEsqueciSenha" class="card-login-aluno" hidden>
+          <div id="msgErroEsqueciSenha" class="alerta-erro" hidden></div>
+          <div id="msgSucessoEsqueciSenha" class="alerta-sucesso" hidden></div>
+
+          <form id="formEsqueciSenha" novalidate style="box-shadow: none; padding: 0; background: transparent;">
+            <div class="grupo-campo">
+              <label for="inputCpfEsqueciSenha">CPF cadastrado:</label>
+              <input
+                type="text"
+                id="inputCpfEsqueciSenha"
+                name="cpf"
+                required
+                placeholder="000.000.000-00"
+                maxlength="14"
+                inputmode="numeric"
+              >
+            </div>
+
+            <button type="submit" id="btnEnviarLinkRedefinicao" class="btn-aluno-acao" style="margin-top: 8px;">
+              Enviar link de redefinição
+            </button>
+          </form>
+
+          <p style="text-align: center; margin-top: 12px;">
+            <a href="#" id="linkVoltarLoginEsqueci" class="link-email" style="font-size: 13px;">Voltar para o login</a>
+          </p>
+        </div>
+
+        <!-- Painel "Redefinir senha": aparece quando a pessoa chega pelo link
+             recebido por e-mail (URL com "?tokenRedefinicao=..."). -->
+        <div id="painelRedefinirSenha" class="card-login-aluno" hidden>
+          <div id="msgErroRedefinirSenha" class="alerta-erro" hidden></div>
+          <div id="msgSucessoRedefinirSenha" class="alerta-sucesso" hidden></div>
+
+          <form id="formRedefinirSenha" novalidate style="box-shadow: none; padding: 0; background: transparent;">
+            <div class="grupo-campo">
+              <label for="inputNovaSenhaRedefinicao">Nova senha:</label>
+              <input
+                type="password"
+                id="inputNovaSenhaRedefinicao"
+                name="novaSenha"
+                required
+                minlength="6"
+                placeholder="Mínimo 6 caracteres"
+                autocomplete="new-password"
+              >
+            </div>
+
+            <div class="grupo-campo">
+              <label for="inputConfirmarSenhaRedefinicao">Confirme a nova senha:</label>
+              <input
+                type="password"
+                id="inputConfirmarSenhaRedefinicao"
+                name="confirmacaoSenha"
+                required
+                minlength="6"
+                placeholder="Repita a nova senha"
+                autocomplete="new-password"
+              >
+            </div>
+
+            <button type="submit" id="btnConfirmarRedefinicao" class="btn-aluno-acao" style="margin-top: 8px;">
+              Definir nova senha
             </button>
           </form>
         </div>

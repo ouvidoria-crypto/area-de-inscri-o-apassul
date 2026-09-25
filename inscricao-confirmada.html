@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inscrição confirmada - Apassul</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -29,13 +30,36 @@
       <p id="linhaCurso"><strong>Curso:</strong> <span id="spanCurso">-</span></p>
       <p id="linhaValor"><strong>Valor do investimento:</strong> <span id="spanValor">R$ 3.200,00</span></p>
       <p id="linhaMetodo"><strong>Forma de pagamento:</strong> <span id="spanMetodo">-</span></p>
-      <p id="linhaStatus"><strong>Status:</strong> <span id="badgeStatus" class="badge-status pago">PAGO / CONFIRMADO (TESTE)</span></p>
+      <p id="linhaStatus"><strong>Status:</strong> <span id="badgeStatus" class="badge-status pendente">Processando...</span></p>
     </div>
 
     <p id="textoPrincipal">
       Sua inscrição foi confirmada com sucesso! O acesso ao curso foi liberado e as credenciais foram enviadas para:
       <br><strong id="emailParticipante" style="color: #2e6b3e; font-size: 16px;">o e-mail cadastrado</strong>.
     </p>
+
+    <!-- Aviso de pagamento ainda PENDENTE (Pix/Boleto reais, aguardando confirmação do Mercado Pago) -->
+    <div id="blocoPagamentoPendente" style="display: none; margin: 22px 0; background: #fffbeb; border: 2px solid #f59e0b; border-radius: 10px; padding: 22px; text-align: center;">
+      <div style="display: inline-block; background: #fef3c7; color: #92400e; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
+        ⏳ Pagamento em análise
+      </div>
+      <p id="textoPagamentoPendente" style="margin: 0 0 16px; font-size: 14.5px; color: #78350f; line-height: 1.55;">
+        Recebemos sua inscrição! Seu login e senha já estão liberados abaixo, mas o conteúdo completo do curso (certificado e conteúdo programático) só é liberado no Painel do Inscrito depois que o pagamento for confirmado.
+      </p>
+      <a id="btnIrMercadoPago" href="#" target="_blank" rel="noopener" class="btn-mp-checkout" style="display: none; background-color: #009ee3; text-decoration: none; padding: 13px 30px; font-weight: 700; font-size: 15px; border-radius: 8px; color: #ffffff;">
+        💳 Ir pagar no Mercado Pago →
+      </a>
+    </div>
+
+    <!-- Aviso de pagamento NÃO aprovado (rejeitado/cancelado) -->
+    <div id="blocoPagamentoRecusado" style="display: none; margin: 22px 0; background: #fef2f2; border: 2px solid #ef4444; border-radius: 10px; padding: 22px; text-align: center;">
+      <div style="display: inline-block; background: #fee2e2; color: #b91c1c; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
+        ❌ Pagamento não aprovado
+      </div>
+      <p style="margin: 0; font-size: 14.5px; color: #7f1d1d; line-height: 1.55;">
+        Não foi possível confirmar seu pagamento. Você pode tentar se inscrever novamente ou falar com a administração da Apassul.
+      </p>
+    </div>
 
     <!-- Card de Convite Direto para quem já possui credenciais -->
     <div id="blocoConvitePainel" style="display: none; margin: 22px 0; background: #ffffff; border: 2px solid #2e6b3e; border-radius: 12px; padding: 26px 20px; text-align: center; box-shadow: 0 4px 14px rgba(46,107,62,0.12);">
@@ -57,7 +81,7 @@
 
     <!-- Caixa de Credenciais (Login e Senha) para Teste Imediato (Apenas para novos participantes) -->
     <div id="blocoCredenciaisTeste" style="margin: 22px 0; background: #ffffff; border: 2px solid #2e6b3e; border-radius: 10px; padding: 22px; text-align: center; box-shadow: 0 4px 12px rgba(46,107,62,0.1);">
-      <div style="display: inline-block; background: #eaf5ec; color: #2e6b3e; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
+      <div id="pillModoAcesso" style="display: inline-block; background: #eaf5ec; color: #2e6b3e; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; margin-bottom: 12px;">
         🧪 Modo de Teste: Acesso Liberado Imediatamente
       </div>
       <p style="margin: 0 0 14px; font-size: 14px; color: #334155;">
@@ -85,6 +109,21 @@
       </div>
     </div>
 
+    <!-- Botão de teste (visível só quando PERMITIR_SIMULACAO_ALUNO=true no servidor) -->
+    <div id="blocoTesteConfirmacao" style="display: none; margin: 18px 0; background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 10px; padding: 16px; text-align: center;">
+      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #475569; margin-bottom: 10px;">
+        🧪 Modo de Teste Rápido (não aparece em produção)
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+        <button id="btnTesteSimularPago" type="button" style="background: #2e6b3e; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
+          Simular PAGO
+        </button>
+        <button id="btnTesteSimularPendente" type="button" style="background: #d97706; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
+          Simular PENDENTE
+        </button>
+      </div>
+    </div>
+
     <a class="botao-enviar pronto link-voltar" href="/">Voltar ao painel de inscrição</a>
   </section>
 
@@ -93,8 +132,14 @@
     const id = params.get("id") || sessionStorage.getItem("inscricaoId");
     const emailGuardado = sessionStorage.getItem("emailParticipante");
     const senhaGuardada = sessionStorage.getItem("senhaTemporaria");
-    const tokenSalvo = sessionStorage.getItem("token_aluno_apassul") || localStorage.getItem("token_aluno_apassul");
-    const usuarioJaPossuiConta = sessionStorage.getItem("usuarioJaPossuiConta") === "true" || !!tokenSalvo;
+    // IMPORTANTE: NÃO usamos mais a simples presença de um token de login
+    // salvo no navegador (localStorage/sessionStorage) pra decidir isso.
+    // Esse token pode ser de uma sessão antiga - de outra pessoa testada
+    // nesse mesmo computador, por exemplo - e continua guardado no navegador
+    // mesmo depois de você resetar o banco de dados, fazendo esta página
+    // achar (errado) que toda inscrição nova "já tem conta". A única fonte
+    // confiável é a resposta do servidor pra ESTA inscrição específica.
+    const usuarioJaPossuiConta = sessionStorage.getItem("usuarioJaPossuiConta") === "true";
 
     const textoPrincipal = document.getElementById("textoPrincipal");
     const destinoEmail = document.getElementById("emailParticipante");
@@ -105,17 +150,41 @@
     const credencialSenha = document.getElementById("credencialSenha");
     const btnCopiarSenha = document.getElementById("btnCopiarSenha");
     const btnIrAreaAluno = document.getElementById("btnIrAreaAluno");
+    const blocoPagamentoPendente = document.getElementById("blocoPagamentoPendente");
+    const blocoPagamentoRecusado = document.getElementById("blocoPagamentoRecusado");
+    const pillModoAcesso = document.getElementById("pillModoAcesso");
+    const btnIrMercadoPago = document.getElementById("btnIrMercadoPago");
+    const blocoTesteConfirmacao = document.getElementById("blocoTesteConfirmacao");
+    const btnTesteSimularPago = document.getElementById("btnTesteSimularPago");
+    const btnTesteSimularPendente = document.getElementById("btnTesteSimularPendente");
 
-    function ativarModoUsuarioComCredencial(email) {
-      textoPrincipal.innerHTML = "Sua inscrição foi confirmada com sucesso! O novo treinamento foi vinculado diretamente à sua conta unificada da Apassul.";
+    // Esconde os blocos de credenciais/convite e os avisos de status de
+    // pagamento antes de decidir o que mostrar de novo. Diferente de antes,
+    // credenciais e aviso de pagamento NÃO são mais mutuamente exclusivos:
+    // o login/senha aparecem sempre que existem, e o aviso de pagamento
+    // (pendente ou recusado) aparece por cima, quando for o caso - o que
+    // fica bloqueado até a confirmação é o conteúdo do curso dentro do
+    // Painel do Inscrito (certificado e conteúdo programático), não o login.
+    function esconderTodosOsBlocos() {
+      if (blocoConvitePainel) blocoConvitePainel.style.display = "none";
       if (blocoCredenciaisTeste) blocoCredenciaisTeste.style.display = "none";
+      if (blocoPagamentoPendente) blocoPagamentoPendente.style.display = "none";
+      if (blocoPagamentoRecusado) blocoPagamentoRecusado.style.display = "none";
+    }
+
+    function mostrarConvitePainel(email) {
+      textoPrincipal.innerHTML = "Sua inscrição foi confirmada com sucesso! O novo treinamento foi vinculado diretamente à sua conta unificada da Apassul.";
       if (blocoConvitePainel) blocoConvitePainel.style.display = "block";
       if (btnConvitePainel && email) {
         btnConvitePainel.href = `/area-do-inscrito.html?email=${encodeURIComponent(email)}`;
       }
     }
 
-    function ativarModoNovoUsuario(email, senha) {
+    // "modoTeste" = true quando o acesso foi liberado sem passar por um
+    // pagamento de verdade (sem token do Mercado Pago configurado no
+    // servidor). Controla só o texto/cor do selo - as credenciais aparecem
+    // do mesmo jeito nos dois casos, porque nos dois o acesso já foi liberado.
+    function mostrarCredenciais(email, senha, modoTeste) {
       if (email) {
         destinoEmail.textContent = email;
         credencialLogin.textContent = email;
@@ -124,14 +193,47 @@
       if (senha) {
         credencialSenha.textContent = senha;
       }
+      if (pillModoAcesso) {
+        if (modoTeste) {
+          pillModoAcesso.textContent = "🧪 Modo de Teste: Acesso Liberado Imediatamente";
+          pillModoAcesso.style.background = "#fef3c7";
+          pillModoAcesso.style.color = "#92400e";
+        } else {
+          pillModoAcesso.textContent = "✅ Login Liberado";
+          pillModoAcesso.style.background = "#eaf5ec";
+          pillModoAcesso.style.color = "#2e6b3e";
+        }
+      }
       if (blocoCredenciaisTeste) blocoCredenciaisTeste.style.display = "block";
-      if (blocoConvitePainel) blocoConvitePainel.style.display = "none";
     }
 
+    function mostrarAvisoPendente(initPoint) {
+      textoPrincipal.innerHTML = "Sua inscrição foi registrada! Seu acesso ao Painel do Inscrito já está liberado - falta só a confirmação do pagamento para desbloquear o conteúdo completo do curso.";
+      if (blocoPagamentoPendente) blocoPagamentoPendente.style.display = "block";
+      if (btnIrMercadoPago) {
+        if (initPoint) {
+          btnIrMercadoPago.href = initPoint;
+          btnIrMercadoPago.style.display = "inline-block";
+        } else {
+          btnIrMercadoPago.style.display = "none";
+        }
+      }
+    }
+
+    function mostrarAvisoRecusado() {
+      textoPrincipal.innerHTML = "Sua inscrição foi registrada, mas o pagamento não foi aprovado. Seu login continua funcionando, mas o conteúdo completo do curso só é liberado após a confirmação do pagamento.";
+      if (blocoPagamentoRecusado) blocoPagamentoRecusado.style.display = "block";
+    }
+
+    // Pintura imediata (antes da resposta do servidor chegar) usando só o que
+    // já sabemos pelo sessionStorage desta aba - o login/senha, quando já
+    // temos, aparecem direto. A resposta do "fetch" mais abaixo completa a
+    // tela com o aviso de status de pagamento, se for o caso.
+    esconderTodosOsBlocos();
     if (usuarioJaPossuiConta) {
-      ativarModoUsuarioComCredencial(emailGuardado);
-    } else {
-      ativarModoNovoUsuario(emailGuardado, senhaGuardada);
+      mostrarConvitePainel(emailGuardado);
+    } else if (senhaGuardada) {
+      mostrarCredenciais(emailGuardado, senhaGuardada, true);
     }
 
     btnCopiarSenha.addEventListener("click", () => {
@@ -165,13 +267,59 @@
           document.getElementById("spanMetodo").textContent = metodoTexto;
 
           const badge = document.getElementById("badgeStatus");
-          badge.textContent = "PAGO / LIBERADO (TESTE)";
-          badge.className = "badge-status pago";
+          const statusTextos = {
+            pago: "PAGO / CONFIRMADO",
+            pendente: "PAGAMENTO PENDENTE",
+            cancelado: "CANCELADO",
+            rejeitado: "NÃO APROVADO",
+          };
+          badge.textContent = statusTextos[dados.status_pagamento] || dados.status_pagamento || "-";
+          badge.className = "badge-status " + (dados.status_pagamento || "pendente");
 
+          esconderTodosOsBlocos();
+
+          // O login/senha (ou o convite pra quem já tem conta) aparecem
+          // sempre, independente do status do pagamento.
           if (dados.jaPossuiConta || usuarioJaPossuiConta || !dados.senha_plana_inicial) {
-            ativarModoUsuarioComCredencial(dados.email || emailGuardado);
+            mostrarConvitePainel(dados.email || emailGuardado);
           } else {
-            ativarModoNovoUsuario(dados.email, dados.senha_plana_inicial || senhaGuardada);
+            mostrarCredenciais(dados.email, dados.senha_plana_inicial || senhaGuardada, !!dados.modoTeste);
+          }
+
+          // Por cima disso, o aviso de status de pagamento (pendente ou
+          // recusado) aparece quando for o caso.
+          if (dados.status_pagamento === "pendente") {
+            mostrarAvisoPendente(dados.mp_init_point);
+          } else if (dados.status_pagamento === "cancelado" || dados.status_pagamento === "rejeitado") {
+            mostrarAvisoRecusado();
+          }
+
+          // Botão de teste (Simular Pago/Pendente) - só aparece quando o
+          // próprio servidor confirma que PERMITIR_SIMULACAO_ALUNO=true.
+          if (blocoTesteConfirmacao) {
+            blocoTesteConfirmacao.style.display = dados.permitirSimulacao ? "block" : "none";
+          }
+
+          async function simularPagamentoNestaInscricao(status) {
+            try {
+              const resSim = await fetch(`/inscricoes/${id}/simular-pagamento`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status }),
+              });
+              if (resSim.ok) {
+                window.location.reload();
+              }
+            } catch (erroSim) {
+              console.error("Erro ao simular pagamento:", erroSim);
+            }
+          }
+
+          if (btnTesteSimularPago) {
+            btnTesteSimularPago.onclick = () => simularPagamentoNestaInscricao("pago");
+          }
+          if (btnTesteSimularPendente) {
+            btnTesteSimularPendente.onclick = () => simularPagamentoNestaInscricao("pendente");
           }
         })
         .catch(console.error);

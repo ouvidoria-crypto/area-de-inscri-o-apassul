@@ -1,3 +1,22 @@
+// ============================================================================
+// Proteção contra XSS armazenado: todo texto que aparece aqui e que foi
+// digitado por quem se inscreveu (nome, empresa, telefone, CPF, e-mail...)
+// precisa passar por aqui antes de entrar em qualquer "innerHTML". Sem isso,
+// alguém poderia se inscrever com um nome do tipo "<img src=x onerror=...>"
+// e esse código rodaria no navegador do administrador assim que a tabela
+// fosse aberta - com acesso à mesma sessão autenticada do admin. Escapar os
+// caracteres especiais de HTML (<, >, &, aspas) faz esse conteúdo ser
+// exibido como texto puro, nunca interpretado como tag/atributo.
+function escaparHTML(valor) {
+  if (valor === null || valor === undefined) return "";
+  return String(valor)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const resumoCorpo = document.querySelector("#tabelaResumo tbody");
 const inscritosCorpo = document.querySelector("#tabelaInscritos tbody");
 const corpoTabelaCursos = document.getElementById("corpoTabelaCursos");
@@ -170,6 +189,87 @@ function formatarMoeda(valor) {
 // sem precisar buscar tudo de novo no servidor.
 let inscritosAtuais = [];
 
+// ----------------------------------------------------------------------
+// Agrupamento da tabela "Lista de inscritos" por CPF (accordion)
+// ----------------------------------------------------------------------
+// A rota /admin/inscricoes continua devolvendo uma linha por INSCRIÇÃO
+// (não por pessoa) - isso não muda. O agrupamento abaixo é só visual: pega
+// essa lista "achatada" e organiza em uma lista de pessoas, cada uma com
+// suas próprias inscrições dentro, pra pessoa com mais de 1 inscrição
+// aparecer em uma única linha na tabela, com uma seta pra expandir.
+function agruparInscritosPorCpf(inscricoes) {
+  const porChave = new Map();
+
+  inscricoes.forEach((inscricao) => {
+    const cpfLimpo = (inscricao.cpf || "").trim();
+    // Sem CPF cadastrado (registros antigos, por exemplo): cada inscrição
+    // vira seu próprio grupo, pra não misturar pessoas diferentes por engano.
+    const chave = cpfLimpo || `sem-cpf-${inscricao.id}`;
+
+    if (!porChave.has(chave)) {
+      porChave.set(chave, {
+        cpf: cpfLimpo,
+        nome: inscricao.nome,
+        empresa: inscricao.empresa,
+        email: inscricao.email,
+        telefone: inscricao.telefone,
+        inscricoes: [],
+      });
+    }
+    porChave.get(chave).inscricoes.push(inscricao);
+  });
+
+  return Array.from(porChave.values());
+}
+
+// Gera as 8 células (Curso, Valor, Pagamento, Status, Acesso Aluno, E-mail
+// recibo, Data, Ação) de UMA inscrição específica. Usada tanto na linha
+// única (pessoa com 1 inscrição só) quanto dentro da sub-tabela expandida
+// (pessoa com várias inscrições) - o conteúdo de cada inscrição é sempre
+// montado da mesma forma, só muda onde ele aparece.
+function celulasDaInscricao(inscricao) {
+  const dataFormatada = new Date(inscricao.data).toLocaleString("pt-BR");
+  let pagamento = nomesPagamento[inscricao.metodo_pagamento] || inscricao.metodo_pagamento || "-";
+  if (inscricao.metodo_pagamento === "boleto" && inscricao.vencimento_boleto) {
+    pagamento += `<br><small class="tag-vencimento">Venc: ${escaparHTML(inscricao.vencimento_boleto)}</small>`;
+  }
+
+  const statusAtual = inscricao.status_pagamento || "pendente";
+  const statusLabel = titulosStatus[statusAtual] || statusAtual;
+
+  return `
+    <td>${escaparHTML(inscricao.curso)}</td>
+    <td>${formatarMoeda(inscricao.valor || 3200)}</td>
+    <td>${pagamento}</td>
+    <td>
+      <span class="badge-status ${statusAtual}">${statusLabel}</span>
+      ${inscricao.mp_payment_id ? `<br><small class="texto-mp-id">MP #${inscricao.mp_payment_id}</small>` : ""}
+    </td>
+    <td>
+      ${
+        statusAtual === "pago"
+          ? `<div style="font-size: 12px; line-height: 1.4;">
+              ${inscricao.email_credenciais_enviado ? '<span style="color: #166534; font-weight:600;">✉️ E-mail enviado</span>' : '<span style="color: #ca8a04; font-weight:600;">⚠️ E-mail pendente</span>'}
+              ${inscricao.troca_senha_obrigatoria === 0 ? '<br><small style="color: #2e6b3e;">(Senha alterada)</small>' : '<br><small style="color: #64748b;">(Ainda na senha provisória)</small>'}
+              <br><button type="button" class="btn-reenviar-acesso" data-id="${inscricao.id}" style="margin-top: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">Reenviar Acesso</button>
+             </div>`
+          : '<span style="color: #94a3b8; font-size: 12px;">Liberado após pgto</span>'
+      }
+    </td>
+    <td>${inscricao.email_recibo ? `<a href="mailto:${escaparHTML(inscricao.email_recibo)}" class="link-email">${escaparHTML(inscricao.email_recibo)}</a>` : "-"}</td>
+    <td>${dataFormatada}</td>
+    <td>
+      <select class="select-status-admin" data-id="${inscricao.id}" aria-label="Alterar status de pagamento">
+        <option value="pendente" ${statusAtual === "pendente" ? "selected" : ""}>Pendente</option>
+        <option value="pago" ${statusAtual === "pago" ? "selected" : ""}>Pago</option>
+        <option value="cancelado" ${statusAtual === "cancelado" ? "selected" : ""}>Cancelado</option>
+      </select>
+      <br>
+      <button type="button" class="btn-excluir-inscricao" data-id="${inscricao.id}" data-curso="${escaparHTML(inscricao.curso)}" style="margin-top: 6px;">🗑️ Excluir</button>
+    </td>
+  `;
+}
+
 async function alterarStatus(id, novoStatus) {
   try {
     const resposta = await fetch(`/admin/inscricoes/${id}/status`, {
@@ -191,6 +291,74 @@ async function alterarStatus(id, novoStatus) {
   } catch (erro) {
     console.error(erro);
     alert("Erro de conexão ao atualizar o status.");
+  }
+}
+
+// Exclui uma única inscrição (um curso de uma pessoa). Pede confirmação
+// antes, porque não tem como desfazer depois.
+async function excluirInscricao(id, nomeCurso) {
+  if (!confirm(`Excluir a inscrição no curso "${nomeCurso}"?\n\nEsta ação não pode ser desfeita.`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/admin/inscricoes/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const dados = await res.json();
+    if (!res.ok) {
+      alert(dados.erro || "Não foi possível excluir a inscrição.");
+      return;
+    }
+    mensagem.textContent = dados.mensagem || "Inscrição excluída com sucesso.";
+    mensagem.className = "msg-sucesso";
+    setTimeout(() => { mensagem.textContent = ""; }, 4000);
+    carregarPainel();
+  } catch (erro) {
+    console.error("Erro ao excluir inscrição:", erro);
+    alert("Erro de conexão ao excluir a inscrição.");
+  }
+}
+
+// Exclui o cadastro inteiro de uma pessoa (todas as inscrições dela, em
+// qualquer curso, e o login dela no Painel do Inscrito). Pede confirmação
+// reforçada, já que apaga mais de uma coisa de uma vez só.
+async function excluirCadastro(cpf, nome) {
+  if (!confirm(`Excluir TODO o cadastro de "${nome}"?\n\nIsso remove TODAS as inscrições dessa pessoa (em qualquer curso) e o login dela no Painel do Inscrito.\n\nEsta ação não pode ser desfeita.`)) {
+    return;
+  }
+
+  // Camada extra: além de já estar logada no painel, precisa digitar a
+  // senha do admin de novo, aqui e agora, pra confirmar a exclusão. Se
+  // errar ou cancelar, nada é apagado.
+  const senhaConfirmacao = prompt("Para confirmar a exclusão, digite novamente a senha do painel administrativo:");
+  if (senhaConfirmacao === null) {
+    return; // Cancelou a caixa de diálogo
+  }
+  if (!senhaConfirmacao.trim()) {
+    alert("É necessário informar a senha do admin para excluir o cadastro.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`/admin/cadastro/${encodeURIComponent(cpf)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ senhaConfirmacao }),
+    });
+    const dados = await res.json();
+    if (!res.ok) {
+      alert(dados.erro || "Não foi possível excluir o cadastro.");
+      return;
+    }
+    mensagem.textContent = dados.mensagem || "Cadastro excluído com sucesso.";
+    mensagem.className = "msg-sucesso";
+    setTimeout(() => { mensagem.textContent = ""; }, 4000);
+    carregarPainel();
+  } catch (erro) {
+    console.error("Erro ao excluir cadastro:", erro);
+    alert("Erro de conexão ao excluir o cadastro.");
   }
 }
 
@@ -252,9 +420,9 @@ async function carregarPainel() {
 
           const linha = document.createElement("tr");
           linha.innerHTML = `
-            <td><strong>${curso.nome}</strong></td>
-            <td>${curso.carga_horaria || "16 horas"}</td>
-            <td>${curso.data_evento || "Edição Oficial 2026"}</td>
+            <td><strong>${escaparHTML(curso.nome)}</strong></td>
+            <td>${escaparHTML(curso.carga_horaria) || "16 horas"}</td>
+            <td>${escaparHTML(curso.data_evento) || "Edição Oficial 2026"}</td>
             <td>${dataFimFormatada}</td>
             <td>${statusBadge}</td>
             <td>${formatarMoeda(curso.preco || 3200)}</td>
@@ -267,7 +435,7 @@ async function carregarPainel() {
                 Editar
               </button>
               ${(curso.total_inscritos || 0) === 0 ? `
-                <button type="button" class="btn-acao-tabela btn-perigo btn-excluir-curso" data-id="${curso.id}" data-nome="${curso.nome}" title="Excluir curso">
+                <button type="button" class="btn-acao-tabela btn-perigo btn-excluir-curso" data-id="${curso.id}" data-nome="${escaparHTML(curso.nome)}" title="Excluir curso">
                   Excluir
                 </button>
               ` : `
@@ -302,7 +470,7 @@ async function carregarPainel() {
       const restantes = curso.vagas - curso.inscritos;
       const linha = document.createElement("tr");
       linha.innerHTML = `
-        <td><strong>${curso.nome}</strong></td>
+        <td><strong>${escaparHTML(curso.nome)}</strong></td>
         <td>${formatarMoeda(curso.preco || 3200)}</td>
         <td>${curso.vagas}</td>
         <td>${curso.inscritos}</td>
@@ -313,53 +481,99 @@ async function carregarPainel() {
     });
 
     inscritosCorpo.innerHTML = "";
-    inscritos.forEach((inscricao) => {
-      const dataFormatada = new Date(inscricao.data).toLocaleString("pt-BR");
-      let pagamento = nomesPagamento[inscricao.metodo_pagamento] || inscricao.metodo_pagamento || "-";
-      if (inscricao.metodo_pagamento === "boleto" && inscricao.vencimento_boleto) {
-        pagamento += `<br><small class="tag-vencimento">Venc: ${inscricao.vencimento_boleto}</small>`;
+    const pessoas = agruparInscritosPorCpf(inscritos);
+
+    pessoas.forEach((pessoa, indice) => {
+      const temMultiplasInscricoes = pessoa.inscricoes.length > 1;
+
+      if (!temMultiplasInscricoes) {
+        // Pessoa com 1 inscrição só: linha única, sem seta - comportamento
+        // idêntico ao de sempre.
+        const linha = document.createElement("tr");
+        linha.innerHTML = `
+          <td>
+            <div class="celula-nome">
+              <strong>${escaparHTML(pessoa.nome)}</strong>
+              ${pessoa.cpf ? `<button type="button" class="btn-excluir-cadastro" data-cpf="${escaparHTML(pessoa.cpf)}" data-nome="${escaparHTML(pessoa.nome)}">Excluir cadastro</button>` : ""}
+            </div>
+          </td>
+          <td>${escaparHTML(pessoa.empresa) || "-"}</td>
+          <td><a href="mailto:${escaparHTML(pessoa.email)}" class="link-email">${escaparHTML(pessoa.email)}</a></td>
+          <td>${escaparHTML(pessoa.telefone) || "-"}</td>
+          <td>${escaparHTML(pessoa.cpf) || "-"}</td>
+          ${celulasDaInscricao(pessoa.inscricoes[0])}
+        `;
+        inscritosCorpo.appendChild(linha);
+        return;
       }
 
-      const statusAtual = inscricao.status_pagamento || "pendente";
-      const statusLabel = titulosStatus[statusAtual] || statusAtual;
-
+      // Pessoa com mais de 1 inscrição: linha compacta com seta "›" ao lado
+      // do nome. Os detalhes de cada inscrição ficam escondidos até o clique.
+      const idLinhaExpandida = `linha-expandida-${indice}`;
       const linha = document.createElement("tr");
+      linha.className = "linha-inscrito";
       linha.innerHTML = `
-        <td><strong>${inscricao.nome}</strong></td>
-        <td>${inscricao.empresa || "-"}</td>
-        <td><a href="mailto:${inscricao.email}" class="link-email">${inscricao.email}</a></td>
-        <td>${inscricao.telefone || "-"}</td>
-        <td>${inscricao.cpf || "-"}</td>
-        <td>${inscricao.curso}</td>
-        <td>${formatarMoeda(inscricao.valor || 3200)}</td>
-        <td>${pagamento}</td>
-        <td>
-          <span class="badge-status ${statusAtual}">${statusLabel}</span>
-          ${inscricao.mp_payment_id ? `<br><small class="texto-mp-id">MP #${inscricao.mp_payment_id}</small>` : ""}
+        <td class="celula-com-seta">
+          <button type="button" class="botao-expandir" aria-expanded="false" aria-controls="${idLinhaExpandida}">›</button>
+          <div class="celula-nome">
+            <strong>${escaparHTML(pessoa.nome)}</strong>
+            ${pessoa.cpf ? `<button type="button" class="btn-excluir-cadastro" data-cpf="${escaparHTML(pessoa.cpf)}" data-nome="${escaparHTML(pessoa.nome)}">Excluir cadastro</button>` : ""}
+          </div>
         </td>
-        <td>
-          ${
-            statusAtual === "pago"
-              ? `<div style="font-size: 12px; line-height: 1.4;">
-                  ${inscricao.email_credenciais_enviado ? '<span style="color: #166534; font-weight:600;">✉️ E-mail enviado</span>' : '<span style="color: #ca8a04; font-weight:600;">⚠️ E-mail pendente</span>'}
-                  ${inscricao.senha_plana_inicial ? `<br><small>Senha inicial: <code>${inscricao.senha_plana_inicial}</code></small>` : ""}
-                  ${inscricao.troca_senha_obrigatoria === 0 ? '<br><small style="color: #2e6b3e;">(Senha alterada)</small>' : ""}
-                  <br><button type="button" class="btn-reenviar-acesso" data-id="${inscricao.id}" style="margin-top: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">Reenviar Acesso</button>
-                 </div>`
-              : '<span style="color: #94a3b8; font-size: 12px;">Liberado após pgto</span>'
-          }
-        </td>
-        <td>${inscricao.email_recibo ? `<a href="mailto:${inscricao.email_recibo}" class="link-email">${inscricao.email_recibo}</a>` : "-"}</td>
-        <td>${dataFormatada}</td>
-        <td>
-          <select class="select-status-admin" data-id="${inscricao.id}" aria-label="Alterar status de pagamento">
-            <option value="pendente" ${statusAtual === "pendente" ? "selected" : ""}>Pendente</option>
-            <option value="pago" ${statusAtual === "pago" ? "selected" : ""}>Pago</option>
-            <option value="cancelado" ${statusAtual === "cancelado" ? "selected" : ""}>Cancelado</option>
-          </select>
-        </td>
+        <td>${escaparHTML(pessoa.empresa) || "-"}</td>
+        <td><a href="mailto:${escaparHTML(pessoa.email)}" class="link-email">${escaparHTML(pessoa.email)}</a></td>
+        <td>${escaparHTML(pessoa.telefone) || "-"}</td>
+        <td>${escaparHTML(pessoa.cpf) || "-"}</td>
+        <td colspan="8"><span class="badge-inscricoes">${pessoa.inscricoes.length} inscrições — clique na seta para ver os cursos</span></td>
       `;
       inscritosCorpo.appendChild(linha);
+
+      // Linha expandida (oculta por padrão) com uma sub-tabela contendo o
+      // detalhe completo de cada inscrição dessa pessoa.
+      const linhaExpandida = document.createElement("tr");
+      linhaExpandida.className = "linha-expandida";
+      linhaExpandida.id = idLinhaExpandida;
+      linhaExpandida.hidden = true;
+
+      const linhasInternas = pessoa.inscricoes
+        .map((inscricao) => `<tr>${celulasDaInscricao(inscricao)}</tr>`)
+        .join("");
+
+      linhaExpandida.innerHTML = `
+        <td colspan="13">
+          <div class="painel-expandido">
+            <table class="tabela-inscricoes-aninhada">
+              <thead>
+                <tr>
+                  <th>Curso</th><th>Valor</th><th>Pagamento</th><th>Status</th>
+                  <th>Acesso Aluno</th><th>E-mail recibo</th><th>Data</th><th>Ação</th>
+                </tr>
+              </thead>
+              <tbody>${linhasInternas}</tbody>
+            </table>
+          </div>
+        </td>
+      `;
+      inscritosCorpo.appendChild(linhaExpandida);
+
+      // Clique na seta abre/fecha a linha expandida (efeito accordion,
+      // animando o max-height do painel - ver style.css).
+      const botao = linha.querySelector(".botao-expandir");
+      botao.addEventListener("click", () => {
+        const painel = linhaExpandida.querySelector(".painel-expandido");
+        const estaAberta = !linhaExpandida.hidden;
+
+        if (estaAberta) {
+          painel.classList.remove("aberto");
+          botao.setAttribute("aria-expanded", "false");
+          painel.addEventListener("transitionend", () => { linhaExpandida.hidden = true; }, { once: true });
+        } else {
+          linhaExpandida.hidden = false;
+          botao.setAttribute("aria-expanded", "true");
+          void painel.offsetWidth; // força o navegador a reconhecer o max-height:0 antes de animar
+          painel.classList.add("aberto");
+        }
+      });
     });
 
     // Conecta eventos dos selects de status
@@ -384,7 +598,14 @@ async function carregarPainel() {
           });
           const dados = await res.json();
           if (res.ok) {
-            alert(`Acesso processado com sucesso para ${dados.resultado.email}! Senha: ${dados.resultado.senhaGerada}`);
+            const { email, senhaGerada, jaTinhaSenhaDefinitiva } = dados.resultado;
+            if (senhaGerada) {
+              alert(`Nova senha gerada e enviada por e-mail para ${email}.\nSenha: ${senhaGerada}\n\n(A senha anterior dela deixou de valer.)`);
+            } else if (jaTinhaSenhaDefinitiva) {
+              alert(`${email} já definiu a própria senha - não é possível reenviá-la ou reiniciá-la por aqui.\nOriente a pessoa a usar "Esqueci minha senha" na tela de login do Painel do Inscrito.`);
+            } else {
+              alert(`Acesso processado para ${email} (nenhuma senha nova foi necessária).`);
+            }
             carregarPainel();
           } else {
             alert(dados.erro || "Falha ao reenviar acesso.");
@@ -396,6 +617,24 @@ async function carregarPainel() {
           btn.disabled = false;
           btn.textContent = "Reenviar Acesso";
         }
+      });
+    });
+
+    // Conecta botão de excluir UMA inscrição
+    document.querySelectorAll(".btn-excluir-inscricao").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const id = e.target.dataset.id;
+        const curso = e.target.dataset.curso;
+        excluirInscricao(id, curso);
+      });
+    });
+
+    // Conecta botão de excluir o CADASTRO inteiro (todas as inscrições da pessoa + login dela)
+    document.querySelectorAll(".btn-excluir-cadastro").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const cpf = e.target.dataset.cpf;
+        const nome = e.target.dataset.nome;
+        excluirCadastro(cpf, nome);
       });
     });
 

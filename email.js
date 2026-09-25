@@ -158,6 +158,88 @@ async function enviarEmailAcessoInscrito({
   }
 }
 
+/**
+ * Envia o "link mágico" de redefinição de senha (fluxo "esqueci minha senha").
+ * O link carrega um token de segurança com expiração curta - só quem tiver
+ * acesso a esta caixa de entrada consegue definir uma nova senha.
+ */
+async function enviarEmailRedefinicaoSenha({ nome, email, linkRedefinicao, minutosExpiracao = 30 }) {
+  const transport = obterTransporte();
+  const remetente =
+    process.env.EMAIL_FROM ||
+    `"Apassul - Cursos e Treinamentos" <${process.env.SMTP_USER || "ouvidoria@apassul.com.br"}>`;
+
+  if (!transport) {
+    console.log("========================================================================");
+    console.log(`📧 [MODO DE TESTE - LINK DE REDEFINIÇÃO DE SENHA]`);
+    console.log(` -> Destinatário: ${email}`);
+    console.log(` -> Link (válido por ${minutosExpiracao} minutos): ${linkRedefinicao}`);
+    console.log(" (Para envio real para caixas externas, preencha SMTP_HOST, SMTP_USER e SMTP_PASS)");
+    console.log("========================================================================");
+    return { sucesso: true, motivo: "MODO_TESTE_SIMULADO" };
+  }
+
+  const htmlConteudo = `
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f4; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .header { background-color: #2e6b3e; padding: 28px 24px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+        .content { padding: 32px 24px; line-height: 1.6; }
+        .btn-acesso { display: block; width: fit-content; margin: 28px auto; background-color: #2e6b3e; color: #ffffff !important; text-decoration: none; padding: 14px 32px; font-weight: 700; font-size: 15px; border-radius: 8px; text-align: center; }
+        .aviso-expiracao { background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; margin: 20px 0; font-size: 13px; color: #92400e; }
+        .footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>APASSUL</h1>
+          <p>Redefinição de senha</p>
+        </div>
+        <div class="content">
+          <p>Olá, <strong>${nome}</strong>,</p>
+          <p>Recebemos um pedido para redefinir a senha de acesso ao seu Painel do Inscrito. Clique no botão abaixo para cadastrar uma nova senha:</p>
+
+          <a href="${linkRedefinicao}" class="btn-acesso">Redefinir minha senha</a>
+
+          <div class="aviso-expiracao">
+            ⏱️ <strong>Este link expira em ${minutosExpiracao} minutos</strong> e só pode ser usado uma vez, por segurança.
+          </div>
+
+          <p style="font-size: 13px; color: #64748b;">
+            Se você não pediu essa redefinição, pode ignorar este e-mail com tranquilidade - sua senha atual continua válida e nada será alterado.
+          </p>
+        </div>
+        <div class="footer">
+          <p>Apassul - Dúvidas e suporte: ouvidoria@apassul.com.br</p>
+          <p>Este é um e-mail automático de segurança da sua conta.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await transport.sendMail({
+      from: remetente,
+      to: email,
+      subject: "Redefinição de senha - Painel do Inscrito Apassul",
+      html: htmlConteudo,
+    });
+    console.log(`[EMAIL] Link de redefinição enviado com sucesso para ${email}: ${info.messageId}`);
+    return { sucesso: true, messageId: info.messageId };
+  } catch (erro) {
+    console.error(`[EMAIL ERRO] Falha ao enviar link de redefinição para ${email}:`, erro.message);
+    return { sucesso: false, erro: erro.message };
+  }
+}
+
 module.exports = {
   enviarEmailAcessoInscrito,
+  enviarEmailRedefinicaoSenha,
 };

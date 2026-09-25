@@ -2,6 +2,7 @@ require("dotenv").config();
 const crypto = require("crypto");
 const express = require("express");
 const basicAuth = require("express-basic-auth");
+const rateLimit = require("express-rate-limit");
 const db = require("./db");
 const { criarPreferenciaPagamento, consultarPagamento } = require("./mp");
 const {
@@ -10,8 +11,16 @@ const {
   hashSenha,
   gerarTokenSessao,
 } = require("./auth_aluno");
+const { enviarEmailRedefinicaoSenha } = require("./email");
 
 const app = express();
+
+// Faz o Express confiar no cabeçalho "X-Forwarded-For" que o proxy do Render
+// (ou qualquer outro proxy reverso na frente do site) adiciona nas requisições.
+// Sem isso, "req.ip" enxergaria sempre o IP interno do proxy, e não o IP real
+// de quem está acessando - o que quebraria o controle de tentativas por IP
+// (rate limit) logo abaixo, tratando todo mundo como se fosse a mesma pessoa.
+app.set("trust proxy", 1);
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
@@ -36,6 +45,18 @@ if (!ADMIN_PASS || !ADMIN_PASS.trim()) {
   console.warn("=".repeat(72));
 }
 
+// Compara uma senha digitada com a senha real do admin, sem vazar (pelo
+// tempo gasto na comparação) pistas sobre onde a senha digitada diverge da
+// correta - mesma técnica já usada aqui pra validar a assinatura do webhook
+// do Mercado Pago (função "verificarAssinaturaWebhookMP" mais abaixo).
+function senhaAdminConfere(senhaDigitada) {
+  if (typeof senhaDigitada !== "string" || !senhaDigitada) return false;
+  const bufferDigitado = Buffer.from(senhaDigitada, "utf8");
+  const bufferReal = Buffer.from(ADMIN_PASS, "utf8");
+  if (bufferDigitado.length !== bufferReal.length) return false;
+  return crypto.timingSafeEqual(bufferDigitado, bufferReal);
+}
+
 function getBaseUrl(req) {
   if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
     return process.env.PUBLIC_URL.trim().replace(/\/$/, "");
@@ -45,8 +66,59 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+// A partir da unificação por CPF, o banco guarda o CPF só com os 11 dígitos
+// (sem ponto/traço) - é isso que permite usar um índice de verdade nas
+// buscas (ver comentário em db.js). "normalizarCpf" tira qualquer pontuação
+// de um CPF digitado ou recebido de fora; "formatarCpf" faz o caminho
+// inverso, reaplicando ponto e traço, sempre que o dado sai do servidor pra
+// alguma tela - assim ninguém que usa o site percebe qualquer diferença.
+function normalizarCpf(cpf) {
+  return (cpf || "").toString().replace(/\D/g, "");
+}
+function formatarCpf(cpf) {
+  const digitos = normalizarCpf(cpf);
+  if (digitos.length !== 11) return cpf || null;
+  return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9, 11)}`;
+}
+
+// Cabeçalhos básicos de segurança (equivalente manual a uma parte do que o
+// pacote "helmet" faria). Não substitui uma Content-Security-Policy completa
+// (isso exigiria revisar todo script/estilo inline do site pra não quebrar
+// nada - fica como melhoria futura), mas já fecha riscos simples e comuns:
+// o navegador não tenta "adivinhar" o tipo de um arquivo (nosniff), o site
+// não pode ser carregado dentro de um <iframe> de outra página (evita
+// "clickjacking" no formulário público e no painel admin), e menos
+// informação de navegação vaza pro destino de um link.
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+  next();
+});
+
+// CORS: antes disso, "Access-Control-Allow-Origin: *" liberava QUALQUER site
+// do mundo a chamar a API daqui pelo navegador de quem estivesse com uma aba
+// aberta - sem necessidade nenhuma, já que o site e a API são servidos juntos,
+// do mesmo endereço. Agora só o próprio domínio público (PUBLIC_URL) e
+// endereços locais (localhost / 127.0.0.1, em qualquer porta - pra não
+// atrapalhar testes no VS Code) recebem a liberação; qualquer outra origem
+// simplesmente não recebe o cabeçalho, e o navegador bloqueia a leitura da
+// resposta por conta própria.
+const origensConhecidas = new Set(
+  [process.env.PUBLIC_URL].filter(Boolean).map((u) => u.trim().replace(/\/$/, ""))
+);
+function origemLiberada(origem) {
+  if (!origem) return false;
+  if (origensConhecidas.has(origem.replace(/\/$/, ""))) return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origem);
+}
+app.use((req, res, next) => {
+  const origem = req.headers.origin;
+  if (origemLiberada(origem)) {
+    res.setHeader("Access-Control-Allow-Origin", origem);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
   res.setHeader("Access-Control-Allow-Headers", "X-Requested-With,Content-Type,Authorization");
   if (req.method === "OPTIONS") {
@@ -55,7 +127,6 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(__dirname));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -64,6 +135,88 @@ const protegerAdmin = basicAuth({
   challenge: true,
   unauthorizedResponse: "Acesso negado.",
 });
+
+// Freio de tentativas (rate limit) contra força bruta - sem isso, alguém podia
+// tentar milhares de senhas por minuto contra o login do admin ou do aluno
+// sem nenhum obstáculo. "limitadorAdmin" é mais generoso porque o próprio
+// painel faz várias chamadas normais em sequência ao carregar (inscrições,
+// cursos, resumo); "limitadorLogin" é mais apertado porque cada tentativa ali
+// É uma tentativa de senha.
+const limitadorAdmin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: "Muitas requisições. Aguarde alguns minutos." },
+});
+const limitadorLogin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente." },
+});
+const limitadorInscricao = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: "Muitas inscrições enviadas deste endereço em pouco tempo. Tente novamente mais tarde." },
+});
+
+// Aplica o freio de tentativas a toda a área administrativa (a página e a
+// API), antes mesmo de checar a senha - assim uma tentativa de força bruta
+// já esbarra no limite, não só numa senha errada.
+app.use(["/admin", "/admin.html"], limitadorAdmin);
+
+// IMPORTANTE: o "admin.html" precisa passar por "protegerAdmin" ANTES do
+// "express.static" servir o arquivo. Sem isso, a página abre livremente pra
+// qualquer um, e como as chamadas internas dela (fetch) não conseguem abrir
+// a telinha de login do navegador sozinhas, o painel simplesmente falhava
+// silenciosamente (erro 401) sem nunca pedir a senha. Pedindo login já na
+// entrada da página, o navegador guarda a credencial e todas as chamadas
+// seguintes (inscrições, cursos, excluir cadastro, etc.) funcionam.
+app.get("/admin.html", protegerAdmin, (req, res, next) => next());
+
+// ============================================================================
+// CORREÇÃO DE SEGURANÇA IMPORTANTE: antes desta lista existir, a linha
+// "app.use(express.static(__dirname))" logo abaixo servia a pasta INTEIRA do
+// projeto pra qualquer pedido HTTP - um simples "GET /banco.db" respondia
+// 200 com o banco de dados inteiro (nome, CPF, e-mail, telefone de todo mundo
+// que já se inscreveu, o hash da senha e até a senha temporária em TEXTO
+// PURO de quem ainda não trocou a senha padrão). O mesmo valia pro código-
+// fonte inteiro do servidor (server.js, db.js, auth_aluno.js, mp.js,
+// email.js) e outros arquivos internos (package.json, .env.example etc.).
+// Esta lista bloqueia esses pedidos ANTES de chegar no express.static, não
+// importa que o arquivo exista de verdade na mesma pasta das páginas
+// públicas do site.
+const CAMINHOS_BLOQUEADOS_ESTATICO = [
+  /\.db(\.|$)/i, // banco.db e qualquer variação/backup (banco.db.bak etc.)
+  /^\/server\.js$/,
+  /^\/db\.js$/,
+  /^\/auth_aluno\.js$/,
+  /^\/mp\.js$/,
+  /^\/email\.js$/,
+  /^\/resetar_inscricoes\.js$/,
+  /^\/migrar_para_inscritos\.js$/,
+  /^\/package(-lock)?\.json$/,
+  /^\/\.env/i,
+  /^\/\.git/i,
+  /^\/\.gitattributes$/i,
+  /^\/mover_env\.bat$/i,
+  /^\/projeto_completo\.txt$/i,
+  /^\/metadata\.json$/i,
+  /^\/node_modules\//i,
+  /^\/Claude outputs\//i,
+];
+app.use((req, res, next) => {
+  if (CAMINHOS_BLOQUEADOS_ESTATICO.some((padrao) => padrao.test(req.path))) {
+    return res.status(404).send("Não encontrado.");
+  }
+  next();
+});
+
+app.use(express.static(__dirname));
 
 // Rota pública: só devolve as informações que quem está se inscrevendo pode ver.
 // Note que "vagas" e a contagem de inscritos NÃO estão nessa consulta de propósito —
@@ -79,7 +232,7 @@ app.get("/cursos", (req, res) => {
   res.json(cursos);
 });
 
-app.post("/inscricoes", async (req, res) => {
+app.post("/inscricoes", limitadorInscricao, async (req, res) => {
   const {
     curso,
     empresa,
@@ -116,16 +269,22 @@ app.post("/inscricoes", async (req, res) => {
   }
 
   const emailNorm = email.trim().toLowerCase();
-  const cpfNorm = (cpf || "").trim();
+  const cpfNorm = normalizarCpf(cpf);
 
-  // Verifica se o participante já está cadastrado neste mesmo curso
+  if (cpfNorm.length !== 11) {
+    return res.status(400).json({ erro: "Informe um CPF válido, com 11 dígitos." });
+  }
+
+  // Verifica se o participante já está cadastrado neste mesmo curso. A
+  // identificação é feita pelo CPF - o e-mail pode mudar ou ser reaproveitado
+  // por mais de uma pessoa (e-mail de setor, por exemplo), mas o CPF sempre
+  // identifica a mesma pessoa de verdade.
   const inscricaoExistenteNoMesmoCurso = db.prepare(`
-    SELECT id FROM inscricoes
-    WHERE curso = ? AND (
-      LOWER(email) = ? OR
-      (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
-    )
-  `).get(curso, emailNorm, cpfNorm);
+    SELECT inscricoes.id
+    FROM inscricoes
+    JOIN inscritos ON inscritos.id = inscricoes.inscrito_id
+    WHERE inscricoes.curso = ? AND inscritos.cpf = ?
+  `).get(curso, cpfNorm);
 
   if (inscricaoExistenteNoMesmoCurso) {
     return res.status(400).json({
@@ -144,70 +303,112 @@ app.post("/inscricoes", async (req, res) => {
   const valorInscricao = cursoInfo.preco || 3200.00;
   const dataAtualIso = new Date().toISOString();
 
-  // Verifica se o usuário já possui cadastro unificado anterior (mesmo e-mail ou CPF)
-  let usuarioUnificado = db.prepare(`
-    SELECT * FROM usuarios_aluno WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
-  `).get(emailNorm, cpfNorm);
+  // Encontra a pessoa pelo CPF (ela pode já existir, de uma inscrição
+  // anterior em outro curso) ou cria o cadastro dela agora - uma única vez,
+  // em "inscritos". Os dados de contato (nome/e-mail/telefone/empresa) são
+  // sempre atualizados com o que a pessoa acabou de digitar, mas login/senha
+  // NUNCA são mexidos aqui (isso é responsabilidade só de "liberarAcessoInscrito").
+  let inscrito = db.prepare("SELECT * FROM inscritos WHERE cpf = ?").get(cpfNorm);
 
-  if (!usuarioUnificado) {
-    usuarioUnificado = db.prepare(`
-      SELECT * FROM inscricoes WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
-      ORDER BY id DESC LIMIT 1
-    `).get(emailNorm, cpfNorm);
+  if (!inscrito) {
+    try {
+      const infoInscrito = db.prepare(`
+        INSERT INTO inscritos (cpf, nome, email, telefone, empresa, criado_em)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(cpfNorm, nome, emailNorm, telefone, empresa, dataAtualIso);
+      inscrito = db.prepare("SELECT * FROM inscritos WHERE id = ?").get(infoInscrito.lastInsertRowid);
+    } catch (erroInscrito) {
+      // Corrida rara (duas inscrições do mesmo CPF quase ao mesmo tempo): se
+      // o CPF já foi inserido por uma requisição concorrente entre a busca e
+      // o INSERT acima, busca de novo em vez de falhar com erro pro usuário.
+      inscrito = db.prepare("SELECT * FROM inscritos WHERE cpf = ?").get(cpfNorm);
+      if (!inscrito) throw erroInscrito;
+    }
+  } else {
+    db.prepare(`
+      UPDATE inscritos SET nome = ?, email = ?, telefone = ?, empresa = ? WHERE id = ?
+    `).run(nome, emailNorm, telefone, empresa, inscrito.id);
+    inscrito = db.prepare("SELECT * FROM inscritos WHERE id = ?").get(inscrito.id);
   }
 
-  // [MODO DE TESTE: Inscrição confirmada automaticamente com status 'pago' ao preencher o formulário]
+  // Pagamento real: a inscrição entra como "pendente" e só é confirmada de
+  // verdade quando o dinheiro realmente chega - por Pix/Boleto, avisado pelo
+  // webhook do Mercado Pago (mais abaixo, "/webhook/mercadopago"); por
+  // depósito bancário, quando você mesma confirmar no painel administrativo.
   const stmt = db.prepare(`
     INSERT INTO inscricoes
-      (nome, email, curso, data, empresa, telefone, cpf, metodo_pagamento, email_recibo, aceite_termos, vencimento_boleto, status_pagamento, valor, data_pagamento, senha_hash, senha_plana_inicial, troca_senha_obrigatoria)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (inscrito_id, curso, data, metodo_pagamento, email_recibo, aceite_termos, vencimento_boleto, status_pagamento, valor)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const infoInsercao = stmt.run(
-    nome, email, curso, dataAtualIso,
-    empresa, telefone, cpf, metodoPagamento, emailRecibo,
+    inscrito.id, curso, dataAtualIso, metodoPagamento, emailRecibo,
     aceiteTermos ? 1 : 0,
     metodoPagamento === "boleto" ? (vencimentoBoleto || null) : null,
-    "pago", // CONFIRMADO IMEDIATAMENTE PARA FINS DE TESTE
-    valorInscricao,
-    dataAtualIso,
-    usuarioUnificado?.senha_hash || null,
-    usuarioUnificado?.senha_plana_inicial || null,
-    usuarioUnificado?.troca_senha_obrigatoria != null ? usuarioUnificado.troca_senha_obrigatoria : 1
+    "pendente",
+    valorInscricao
   );
 
   const inscricaoId = infoInsercao.lastInsertRowid;
 
-  // Atualiza ou cria o perfil unificado em usuarios_aluno
-  db.prepare(`
-    INSERT INTO usuarios_aluno (email, cpf, nome, empresa, telefone, senha_hash, senha_plana_inicial, troca_senha_obrigatoria, criado_em)
-    VALUES (@email, @cpf, @nome, @empresa, @telefone, @senha_hash, @senha_plana_inicial, @troca_senha_obrigatoria, @criado_em)
-    ON CONFLICT(email) DO UPDATE SET
-      cpf = COALESCE(excluded.cpf, usuarios_aluno.cpf),
-      nome = excluded.nome,
-      empresa = excluded.empresa,
-      telefone = excluded.telefone,
-      senha_hash = COALESCE(usuarios_aluno.senha_hash, excluded.senha_hash)
-  `).run({
-    email: emailNorm,
-    cpf: cpfNorm || null,
-    nome,
-    empresa: empresa || null,
-    telefone: telefone || null,
-    senha_hash: usuarioUnificado?.senha_hash || null,
-    senha_plana_inicial: usuarioUnificado?.senha_plana_inicial || null,
-    troca_senha_obrigatoria: usuarioUnificado?.troca_senha_obrigatoria != null ? usuarioUnificado.troca_senha_obrigatoria : 1,
-    criado_em: dataAtualIso,
-  });
+  console.log(`Nova inscrição registrada em "${cursoInfo.nome}" (ID ${inscricaoId}):`, nome, email, "- método:", metodoPagamento);
 
-  console.log(`[TESTE] Inscrição confirmada em "${cursoInfo.nome}" (ID ${inscricaoId}):`, nome, email);
+  const metodosOnline = ["pix", "boleto"];
+  const exigePagamentoOnline = metodosOnline.includes(metodoPagamento);
 
-  // [ENVIO IMEDIATO DE LOGIN E SENHA ALFANUMÉRICA PARA O E-MAIL CADASTRADO]
+  let initPoint = null;
+  let modoSimulado = true;
+
+  if (exigePagamentoOnline) {
+    try {
+      const baseUrl = getBaseUrl(req);
+      const preferencia = await criarPreferenciaPagamento({
+        inscricaoId,
+        curso: cursoInfo,
+        participante: { nome, email, telefone, cpf },
+        metodoPagamento,
+        vencimentoBoleto,
+        baseUrl,
+      });
+
+      modoSimulado = preferencia.modoSimulado;
+      initPoint = preferencia.init_point;
+
+      db.prepare(`UPDATE inscricoes SET mp_preference_id = ?, mp_init_point = ? WHERE id = ?`)
+        .run(preferencia.id || null, initPoint, inscricaoId);
+    } catch (erroMP) {
+      console.error("[Mercado Pago] Erro ao gerar cobrança:", erroMP.message);
+      // Não derruba a inscrição por causa disso - ela já foi salva como
+      // "pendente" e a pessoa (ou você, pelo painel) consegue resolver depois.
+    }
+  }
+
+  // Sem token do Mercado Pago configurado no ambiente (modo simulado), o
+  // Pix/Boleto se comporta como sempre se comportou antes de o pagamento
+  // real estar ativo: confirma na hora, sem exigir pagamento de verdade -
+  // útil pra continuar testando localmente sem mexer em nada. Depósito
+  // bancário NUNCA confirma na hora: sempre espera aprovação manual seguindo
+  // o mesmo fluxo que o painel administrativo já tinha antes disso tudo.
+  let statusPagamento = "pendente";
+
+  if (exigePagamentoOnline && modoSimulado) {
+    const agora = new Date().toISOString();
+    db.prepare(`UPDATE inscricoes SET status_pagamento = 'pago', data_pagamento = ? WHERE id = ?`)
+      .run(agora, inscricaoId);
+    statusPagamento = "pago";
+  }
+
+  // Login e senha são liberados NA HORA, pra qualquer forma de pagamento -
+  // a pessoa já entra no Painel do Inscrito assim que se inscreve, mesmo
+  // com o pagamento ainda pendente (Pix aguardando confirmação, Boleto
+  // aguardando compensação ou Depósito aguardando baixa manual sua). O que
+  // fica bloqueado até a confirmação de pagamento é o CONTEÚDO específico
+  // do curso dentro do portal (certificado e conteúdo programático) - isso
+  // é controlado na própria tela do Painel do Inscrito, não aqui.
   let infoAcesso = null;
   try {
     const baseUrl = getBaseUrl(req);
     infoAcesso = await liberarAcessoInscrito(db, inscricaoId, baseUrl);
-    console.log(`[TESTE - Inscrição ID ${inscricaoId}] Login (${email}) e senha alfanumérica (${infoAcesso.senhaGerada}) disparados para ${email}. Status: ${infoAcesso.emailEnviado ? "ENVIADO VIA SMTP" : "REGISTRADO NO SISTEMA"}`);
   } catch (errLiberacao) {
     console.error("[Erro Liberação Imediata]:", errLiberacao.message);
   }
@@ -216,10 +417,10 @@ app.post("/inscricoes", async (req, res) => {
     sucesso: true,
     id: inscricaoId,
     metodoPagamento,
-    statusPagamento: "pago",
+    statusPagamento,
     email,
-    initPoint: null,
-    modoSimulado: true,
+    initPoint,
+    modoSimulado,
     emailEnviado: infoAcesso?.emailEnviado || false,
     senhaTemporaria: infoAcesso?.jaPossuiConta ? null : (infoAcesso?.senhaGerada || null),
     jaPossuiConta: !!infoAcesso?.jaPossuiConta,
@@ -230,10 +431,13 @@ app.post("/inscricoes", async (req, res) => {
 app.get("/inscricoes/:id", (req, res) => {
   const { id } = req.params;
   const inscricao = db.prepare(`
-    SELECT inscricoes.id, inscricoes.nome, inscricoes.email, inscricoes.metodo_pagamento,
+    SELECT inscricoes.id, inscritos.nome, inscritos.email, inscricoes.metodo_pagamento,
            inscricoes.vencimento_boleto, inscricoes.status_pagamento, inscricoes.valor,
-           inscricoes.mp_init_point, inscricoes.senha_plana_inicial, cursos.nome AS nome_curso
+           inscricoes.mp_init_point, inscricoes.mp_payment_id,
+           inscritos.senha_hash, inscritos.troca_senha_obrigatoria, inscritos.id AS inscrito_id,
+           cursos.nome AS nome_curso
     FROM inscricoes
+    JOIN inscritos ON inscritos.id = inscricoes.inscrito_id
     JOIN cursos ON cursos.id = inscricoes.curso
     WHERE inscricoes.id = ?
   `).get(id);
@@ -242,16 +446,69 @@ app.get("/inscricoes/:id", (req, res) => {
     return res.status(404).json({ erro: "Inscrição não encontrada." });
   }
 
-  const emailNorm = inscricao.email.toLowerCase();
-  const usuario = db.prepare("SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?").get(emailNorm);
-  const totalInscricoes = db.prepare("SELECT COUNT(*) AS total FROM inscricoes WHERE LOWER(email) = ?").get(emailNorm)?.total || 1;
-  const jaPossuiConta = totalInscricoes > 1 || (usuario && usuario.senha_hash && usuario.troca_senha_obrigatoria === 0);
+  const totalOutrasInscricoes = db.prepare(
+    "SELECT COUNT(*) AS total FROM inscricoes WHERE inscrito_id = ? AND id != ?"
+  ).get(inscricao.inscrito_id, id)?.total || 0;
+  const jaPossuiConta = totalOutrasInscricoes > 0 || (inscricao.senha_hash && inscricao.troca_senha_obrigatoria === 0);
+  delete inscricao.senha_hash;
+  delete inscricao.troca_senha_obrigatoria;
+  delete inscricao.inscrito_id;
 
+  // "modoTeste": o acesso foi liberado sem passar por um pagamento de
+  // verdade no Mercado Pago (Pix/Boleto marcados "pago" na hora porque não
+  // havia token configurado no servidor no momento da inscrição). Um
+  // pagamento real sempre grava um "mp_payment_id" (confirmado pelo
+  // webhook) - sem ele, mesmo com status "pago", sabemos que foi o modo
+  // simulado. Depósito bancário nunca é "modo teste": ele só vira "pago"
+  // quando você mesma confirma manualmente no painel.
+  const metodosOnline = ["pix", "boleto"];
+  const modoTeste =
+    metodosOnline.includes(inscricao.metodo_pagamento) &&
+    inscricao.status_pagamento === "pago" &&
+    !inscricao.mp_payment_id;
+
+  // A senha provisória NÃO é mais lida do banco aqui (nunca fica salva em
+  // texto puro - ver auth_aluno.js). A tela de confirmação mostra a senha só
+  // se ela ainda estiver guardada no sessionStorage do próprio navegador de
+  // quem acabou de se inscrever (script.js salva ela ali, uma única vez, na
+  // hora da resposta de "POST /inscricoes"); ao reabrir a página em outro
+  // aparelho ou depois de limpar os dados do navegador, a senha não aparece
+  // mais aqui - mas já foi enviada por e-mail, que continua sendo o canal
+  // confiável de recuperação.
   res.json({
     ...inscricao,
     jaPossuiConta: !!jaPossuiConta,
-    senha_plana_inicial: jaPossuiConta ? null : inscricao.senha_plana_inicial,
+    modoTeste,
+    permitirSimulacao: process.env.PERMITIR_SIMULACAO_ALUNO === "true",
   });
+});
+
+// Botão de teste (visível só pra você) na própria tela de confirmação de
+// inscrição, pra simular "pago" e "pendente" sem precisar pagar de verdade
+// nem mexer direto no banco. Usa a mesma trava das outras simulações do
+// site: só funciona quando PERMITIR_SIMULACAO_ALUNO=true no .env (nunca
+// deixe essa variável configurada assim no Render/produção).
+app.post("/inscricoes/:id/simular-pagamento", (req, res) => {
+  if (process.env.PERMITIR_SIMULACAO_ALUNO !== "true") {
+    return res.status(403).json({
+      erro: "Este recurso de teste está desativado neste ambiente.",
+    });
+  }
+
+  const { id } = req.params;
+  const { status } = req.body || {};
+  const novoStatus = status === "pago" ? "pago" : "pendente";
+  const dataPag = novoStatus === "pago" ? new Date().toISOString() : null;
+
+  const resultado = db.prepare(`
+    UPDATE inscricoes SET status_pagamento = ?, data_pagamento = ? WHERE id = ?
+  `).run(novoStatus, dataPag, id);
+
+  if (resultado.changes === 0) {
+    return res.status(404).json({ erro: "Inscrição não encontrada." });
+  }
+
+  res.json({ sucesso: true, status_pagamento: novoStatus, data_pagamento: dataPag });
 });
 
 // Confere se a notificação do webhook realmente veio do Mercado Pago,
@@ -384,8 +641,29 @@ app.get("/admin", (req, res) => {
 });
 
 app.get("/admin/inscricoes", protegerAdmin, (req, res) => {
-  const todas = db.prepare("SELECT * FROM inscricoes ORDER BY data DESC").all();
-  res.json(todas);
+  // IMPORTANTE: aqui era "SELECT *", o que também mandava pro navegador do
+  // admin colunas sensíveis que ele nunca usa - "senha_hash" (o hash da senha
+  // de cada aluno) e "token_sessao" (o token que autentica o login de cada
+  // aluno no Painel do Inscrito, equivalente a uma senha de sessão). Mesmo
+  // sem nenhuma tela mostrando esses campos, eles ficavam visíveis na aba
+  // de rede do navegador e - mais grave - utilizáveis por qualquer script
+  // malicioso que rodasse na página do admin. Listando só as colunas que a
+  // tela realmente usa, esse risco desaparece por completo.
+  const todas = db.prepare(`
+    SELECT inscricoes.id, inscritos.nome, inscritos.email, inscricoes.curso, inscricoes.data,
+           inscritos.empresa, inscritos.telefone, inscritos.cpf,
+           inscricoes.metodo_pagamento, inscricoes.email_recibo, inscricoes.aceite_termos, inscricoes.vencimento_boleto,
+           inscricoes.status_pagamento, inscricoes.valor, inscricoes.mp_payment_id, inscricoes.data_pagamento,
+           inscritos.troca_senha_obrigatoria,
+           inscricoes.email_credenciais_enviado, inscricoes.data_envio_credenciais
+    FROM inscricoes
+    JOIN inscritos ON inscritos.id = inscricoes.inscrito_id
+    ORDER BY inscricoes.data DESC
+  `).all();
+  // O CPF é guardado só com dígitos no banco (ver db.js) - "formatarCpf"
+  // reaplica o ponto e o traço aqui, na saída da API, pra tela do admin
+  // continuar mostrando exatamente como antes.
+  res.json(todas.map((linha) => ({ ...linha, cpf: formatarCpf(linha.cpf) })));
 });
 
 // Atualização manual do status de pagamento pelo administrador (ex: confirmação de depósito bancário)
@@ -426,12 +704,16 @@ app.patch("/admin/inscricoes/:id/status", protegerAdmin, async (req, res) => {
   res.json({ sucesso: true, id, status_pagamento, dadosAcesso });
 });
 
-// Reenvio manual dos dados de acesso por e-mail pelo Administrador
+// Reenvio manual dos dados de acesso por e-mail pelo Administrador.
+// Como a senha nunca fica salva em texto puro no banco (ver auth_aluno.js),
+// "reenviar" o acesso de quem ainda não escolheu a própria senha significa
+// gerar uma senha nova (a anterior deixa de valer) - por isso "forcarNovaSenha".
+// Quem já definiu a própria senha não é afetado: precisa usar "Esqueci minha senha".
 app.post("/admin/inscricoes/:id/reenviar-acesso", protegerAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const baseUrl = getBaseUrl(req);
-    const resultado = await liberarAcessoInscrito(db, id, baseUrl);
+    const resultado = await liberarAcessoInscrito(db, id, baseUrl, { forcarNovaSenha: true });
     res.json({ sucesso: true, resultado });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -575,6 +857,75 @@ app.delete("/admin/cursos/:id", protegerAdmin, (req, res) => {
   }
 });
 
+// Exclui UMA inscrição específica (uma linha da tabela "inscricoes").
+// Protegida pela mesma senha do painel admin ("protegerAdmin") - só quem
+// souber a senha do admin consegue excluir.
+app.delete("/admin/inscricoes/:id", protegerAdmin, (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const info = db.prepare("DELETE FROM inscricoes WHERE id = ?").run(id);
+    if (info.changes === 0) {
+      return res.status(404).json({ erro: "Inscrição não encontrada." });
+    }
+    res.json({ sucesso: true, mensagem: "Inscrição excluída com sucesso." });
+  } catch (err) {
+    console.error("Erro ao excluir inscrição:", err);
+    res.status(500).json({ erro: "Erro ao excluir inscrição: " + err.message });
+  }
+});
+
+// Exclui o CADASTRO inteiro de uma pessoa: todas as inscrições dela (em
+// qualquer curso) e o login dela no Painel do Inscrito. Identificado pelo
+// CPF, do mesmo jeito que o painel já agrupa as inscrições por pessoa.
+// Também protegida pela senha do admin. Roda tudo dentro de uma transação -
+// ou exclui tudo, ou (se algo falhar no meio) não exclui nada.
+app.delete("/admin/cadastro/:cpf", protegerAdmin, (req, res) => {
+  const cpfBruto = (req.params.cpf || "").trim();
+  if (!cpfBruto) {
+    return res.status(400).json({ erro: "CPF não informado." });
+  }
+
+  // Camada extra de segurança: além de já estar atrás da senha do painel
+  // (protegerAdmin, verificada pelo navegador), excluir um cadastro inteiro
+  // exige digitar a senha do admin DE NOVO, no exato momento da exclusão -
+  // pra evitar que um clique acidental (ou alguém com o navegador já logado
+  // sem querer) apague dados sem uma confirmação consciente.
+  const { senhaConfirmacao } = req.body || {};
+  if (!senhaAdminConfere(senhaConfirmacao)) {
+    return res.status(403).json({ erro: "Senha do admin incorreta. O cadastro NÃO foi excluído." });
+  }
+
+  const cpfLimpo = normalizarCpf(cpfBruto);
+  if (cpfLimpo.length !== 11) {
+    return res.status(400).json({ erro: "CPF inválido." });
+  }
+
+  try {
+    const inscrito = db.prepare("SELECT id FROM inscritos WHERE cpf = ?").get(cpfLimpo);
+    if (!inscrito) {
+      return res.status(404).json({ erro: "Nenhum cadastro encontrado com esse CPF." });
+    }
+
+    const totalInscricoes = db.prepare(
+      "SELECT COUNT(*) AS total FROM inscricoes WHERE inscrito_id = ?"
+    ).get(inscrito.id).total;
+
+    // Com "ON DELETE CASCADE" ativo (ver db.js), apagar a pessoa em
+    // "inscritos" já apaga automaticamente todas as inscrições dela em
+    // qualquer curso - não é mais preciso apagar tabela por tabela na mão.
+    db.prepare("DELETE FROM inscritos WHERE id = ?").run(inscrito.id);
+
+    res.json({
+      sucesso: true,
+      mensagem: `Cadastro excluído: ${totalInscricoes} inscrição(ões) e 1 login removido(s).`,
+    });
+  } catch (err) {
+    console.error("Erro ao excluir cadastro:", err);
+    res.status(500).json({ erro: "Erro ao excluir cadastro: " + err.message });
+  }
+});
+
 // ==========================================
 // ROTAS DO PAINEL DO INSCRITO (ALUNO) - LOGIN UNIFICADO
 // ==========================================
@@ -593,19 +944,7 @@ function autenticarAluno(req, res, next) {
     return res.status(401).json({ erro: "Sessão não informada ou expirada. Faça login novamente." });
   }
 
-  // Busca o usuário unificado por token de sessão em usuarios_aluno
-  let usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE token_sessao = ?`).get(token);
-
-  // Fallback para inscrições antigas que guardaram token_sessao em inscricoes
-  if (!usuario) {
-    const inscricao = db.prepare(`SELECT * FROM inscricoes WHERE token_sessao = ? ORDER BY id DESC LIMIT 1`).get(token);
-    if (inscricao) {
-      usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(inscricao.email.toLowerCase());
-      if (!usuario) {
-        usuario = inscricao;
-      }
-    }
-  }
+  const usuario = db.prepare(`SELECT * FROM inscritos WHERE token_sessao = ?`).get(token);
 
   if (!usuario) {
     return res.status(401).json({ erro: "Sessão inválida. Faça login novamente." });
@@ -615,55 +954,36 @@ function autenticarAluno(req, res, next) {
   next();
 }
 
-// 1. Endpoint para verificar na hora da inscrição se a pessoa já possui cadastro anterior
+// 1. Endpoint para verificar na hora da inscrição se a pessoa já possui cadastro
+// anterior. A identificação é feita pelo CPF: o e-mail pode ser trocado ou
+// compartilhado (ex: e-mail de um setor usado por mais de uma pessoa),
+// enquanto o CPF sempre identifica a mesma pessoa.
 app.post("/api/aluno/verificar-cadastro", (req, res) => {
-  const { email, cpf } = req.body || {};
-  const emailNorm = (email || "").trim().toLowerCase();
-  const cpfNorm = (cpf || "").trim();
-  const cpfLimpo = cpfNorm.replace(/\D/g, "");
+  const { cpf } = req.body || {};
+  const cpfLimpo = normalizarCpf(cpf);
 
-  let usuario = null;
-
-  if (emailNorm) {
-    usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(emailNorm);
-    if (!usuario) {
-      usuario = db.prepare(`SELECT * FROM inscricoes WHERE LOWER(email) = ? ORDER BY id DESC LIMIT 1`).get(emailNorm);
-    }
+  if (cpfLimpo.length !== 11) {
+    return res.json({ existe: false });
   }
 
-  if (!usuario && cpfLimpo.length >= 10) {
-    usuario = db.prepare(`
-      SELECT * FROM usuarios_aluno
-      WHERE REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?
-    `).get(cpfLimpo);
-
-    if (!usuario) {
-      usuario = db.prepare(`
-        SELECT * FROM inscricoes
-        WHERE REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?
-        ORDER BY id DESC LIMIT 1
-      `).get(cpfLimpo);
-    }
-  }
-
+  const usuario = db.prepare(`SELECT * FROM inscritos WHERE cpf = ?`).get(cpfLimpo);
   if (!usuario) {
     return res.json({ existe: false });
   }
 
-  // Busca os cursos em que a pessoa já está cadastrada
   const inscricoes = db.prepare(`
     SELECT inscricoes.id AS inscricao_id, inscricoes.curso, cursos.nome AS nome_curso, inscricoes.status_pagamento
     FROM inscricoes
     LEFT JOIN cursos ON inscricoes.curso = cursos.id
-    WHERE LOWER(inscricoes.email) = ? OR (inscricoes.cpf IS NOT NULL AND inscricoes.cpf != '' AND inscricoes.cpf = ?)
+    WHERE inscricoes.inscrito_id = ?
     ORDER BY inscricoes.id DESC
-  `).all(usuario.email.toLowerCase(), usuario.cpf || "");
+  `).all(usuario.id);
 
   res.json({
     existe: true,
     nome: usuario.nome,
     email: usuario.email,
-    cpf: usuario.cpf,
+    cpf: formatarCpf(usuario.cpf),
     empresa: usuario.empresa,
     telefone: usuario.telefone,
     cursosInscritos: inscricoes.map((i) => ({
@@ -676,7 +996,7 @@ app.post("/api/aluno/verificar-cadastro", (req, res) => {
 });
 
 // 2. Login Unificado do Aluno (por e-mail ou CPF, usando a mesma senha)
-app.post("/api/aluno/login", async (req, res) => {
+app.post("/api/aluno/login", limitadorLogin, async (req, res) => {
   const { email, cpf, senha } = req.body;
 
   if ((!email && !cpf) || !senha) {
@@ -684,29 +1004,16 @@ app.post("/api/aluno/login", async (req, res) => {
   }
 
   const emailNorm = (email || "").trim().toLowerCase();
-  const cpfNorm = (cpf || "").trim();
-  const cpfLimpo = cpfNorm.replace(/\D/g, "");
+  const cpfLimpo = normalizarCpf(cpf);
 
   let usuario = null;
 
-  if (emailNorm) {
-    usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(emailNorm);
+  if (cpfLimpo.length === 11) {
+    usuario = db.prepare(`SELECT * FROM inscritos WHERE cpf = ?`).get(cpfLimpo);
   }
 
-  if (!usuario && cpfLimpo.length >= 10) {
-    usuario = db.prepare(`
-      SELECT * FROM usuarios_aluno
-      WHERE REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?
-    `).get(cpfLimpo);
-  }
-
-  // Se ainda não estava em usuarios_aluno, busca na tabela de inscrições
-  if (!usuario) {
-    usuario = db.prepare(`
-      SELECT * FROM inscricoes
-      WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND (cpf = ? OR REPLACE(REPLACE(cpf, '.', ''), '-', '') = ?))
-      ORDER BY id DESC LIMIT 1
-    `).get(emailNorm, cpfNorm, cpfLimpo);
+  if (!usuario && emailNorm) {
+    usuario = db.prepare(`SELECT * FROM inscritos WHERE LOWER(email) = ?`).get(emailNorm);
   }
 
   if (!usuario) {
@@ -715,15 +1022,15 @@ app.post("/api/aluno/login", async (req, res) => {
     });
   }
 
-  // Se a senha ainda não havia sido gerada para este registro, gera agora automaticamente
+  // Se a senha ainda não havia sido gerada para esta pessoa (situação rara -
+  // normalmente já é criada na hora da inscrição), gera agora automaticamente.
   if (!usuario.senha_hash) {
     try {
       const baseUrl = getBaseUrl(req);
-      const inscricaoRecente = db.prepare(`SELECT id FROM inscricoes WHERE LOWER(email) = ? ORDER BY id DESC LIMIT 1`).get(usuario.email.toLowerCase());
+      const inscricaoRecente = db.prepare(`SELECT id FROM inscricoes WHERE inscrito_id = ? ORDER BY id DESC LIMIT 1`).get(usuario.id);
       if (inscricaoRecente) {
         await liberarAcessoInscrito(db, inscricaoRecente.id, baseUrl);
-        usuario = db.prepare(`SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?`).get(usuario.email.toLowerCase()) ||
-                  db.prepare(`SELECT * FROM inscricoes WHERE id = ?`).get(inscricaoRecente.id);
+        usuario = db.prepare(`SELECT * FROM inscritos WHERE id = ?`).get(usuario.id);
       }
     } catch (e) {
       console.error("Erro ao gerar credenciais na tentativa de login:", e.message);
@@ -738,49 +1045,23 @@ app.post("/api/aluno/login", async (req, res) => {
   const tokenSessao = gerarTokenSessao();
   const agora = new Date().toISOString();
 
-  // Atualiza token em usuarios_aluno
-  db.prepare(`
-    INSERT INTO usuarios_aluno (email, cpf, nome, empresa, telefone, senha_hash, senha_plana_inicial, troca_senha_obrigatoria, token_sessao, ultimo_login, criado_em)
-    VALUES (@email, @cpf, @nome, @empresa, @telefone, @senha_hash, @senha_plana_inicial, @troca_senha_obrigatoria, @token_sessao, @ultimo_login, @criado_em)
-    ON CONFLICT(email) DO UPDATE SET
-      token_sessao = excluded.token_sessao,
-      ultimo_login = excluded.ultimo_login
-  `).run({
-    email: usuario.email.toLowerCase(),
-    cpf: usuario.cpf || null,
-    nome: usuario.nome,
-    empresa: usuario.empresa || null,
-    telefone: usuario.telefone || null,
-    senha_hash: usuario.senha_hash,
-    senha_plana_inicial: usuario.senha_plana_inicial || null,
-    troca_senha_obrigatoria: usuario.troca_senha_obrigatoria != null ? usuario.troca_senha_obrigatoria : 1,
-    token_sessao: tokenSessao,
-    ultimo_login: agora,
-    criado_em: agora,
-  });
+  db.prepare(`UPDATE inscritos SET token_sessao = ?, ultimo_login = ? WHERE id = ?`)
+    .run(tokenSessao, agora, usuario.id);
 
-  // Sincroniza também nas inscrições para consistência total
-  db.prepare(`
-    UPDATE inscricoes
-    SET token_sessao = ?, ultimo_login = ?
-    WHERE LOWER(email) = ? OR (cpf IS NOT NULL AND cpf != '' AND cpf = ?)
-  `).run(tokenSessao, agora, usuario.email.toLowerCase(), usuario.cpf || "");
-
-  // Busca os cursos do usuário
   const cursosInscritos = db.prepare(`
     SELECT inscricoes.id AS inscricao_id, inscricoes.curso, cursos.nome AS nome_curso, inscricoes.status_pagamento
     FROM inscricoes
     LEFT JOIN cursos ON inscricoes.curso = cursos.id
-    WHERE LOWER(inscricoes.email) = ? OR (inscricoes.cpf IS NOT NULL AND inscricoes.cpf != '' AND inscricoes.cpf = ?)
+    WHERE inscricoes.inscrito_id = ?
     ORDER BY inscricoes.id DESC
-  `).all(usuario.email.toLowerCase(), usuario.cpf || "");
+  `).all(usuario.id);
 
   res.json({
     sucesso: true,
     token: tokenSessao,
     nome: usuario.nome,
     email: usuario.email,
-    cpf: usuario.cpf,
+    cpf: formatarCpf(usuario.cpf),
     empresa: usuario.empresa,
     telefone: usuario.telefone,
     trocaSenhaObrigatoria: Boolean(usuario.troca_senha_obrigatoria),
@@ -806,25 +1087,114 @@ app.post("/api/aluno/trocar-senha", autenticarAluno, (req, res) => {
   }
 
   const novoHash = hashSenha(novaSenha.trim());
-  const emailNorm = req.usuarioAluno.email.toLowerCase();
 
   db.prepare(`
-    UPDATE usuarios_aluno
+    UPDATE inscritos
     SET senha_hash = ?,
         senha_plana_inicial = NULL,
         troca_senha_obrigatoria = 0
-    WHERE LOWER(email) = ?
-  `).run(novoHash, emailNorm);
-
-  db.prepare(`
-    UPDATE inscricoes
-    SET senha_hash = ?,
-        senha_plana_inicial = NULL,
-        troca_senha_obrigatoria = 0
-    WHERE LOWER(email) = ?
-  `).run(novoHash, emailNorm);
+    WHERE id = ?
+  `).run(novoHash, req.usuarioAluno.id);
 
   res.json({ sucesso: true, mensagem: "Senha alterada com sucesso em todos os seus acessos!" });
+});
+
+// 3.1. Link mágico de redefinição de senha ("esqueci minha senha") - passo 1:
+// a pessoa informa o CPF cadastrado, e o sistema manda um link exclusivo para
+// o e-mail cadastrado. O token desse link expira em 30 minutos e só serve
+// uma única vez, exatamente como um link de redefinição de senha de qualquer
+// site sério: só quem tiver acesso à caixa de entrada consegue trocar a senha.
+const MINUTOS_EXPIRACAO_REDEFINICAO = 30;
+
+app.post("/api/aluno/esqueci-senha", limitadorLogin, async (req, res) => {
+  const { cpf } = req.body || {};
+  const cpfLimpo = normalizarCpf(cpf);
+
+  // Mensagem sempre igual, ache ou não o cadastro - assim ninguém consegue
+  // descobrir, por tentativa e erro, quais CPFs têm conta no sistema.
+  const mensagemPadrao =
+    "Se o CPF informado tiver um cadastro em nosso sistema, enviamos um link de redefinição de senha para o e-mail cadastrado.";
+
+  if (cpfLimpo.length !== 11) {
+    return res.status(400).json({ erro: "Informe um CPF válido, com 11 dígitos." });
+  }
+
+  try {
+    const usuario = db.prepare(`SELECT * FROM inscritos WHERE cpf = ?`).get(cpfLimpo);
+
+    if (usuario && usuario.email) {
+      const token = gerarTokenSessao();
+      const expira = new Date(Date.now() + MINUTOS_EXPIRACAO_REDEFINICAO * 60 * 1000).toISOString();
+
+      db.prepare(`
+        UPDATE inscritos
+        SET token_redefinicao_senha = ?, token_redefinicao_expira = ?
+        WHERE id = ?
+      `).run(token, expira, usuario.id);
+
+      const baseUrl = getBaseUrl(req);
+      const linkRedefinicao = `${baseUrl}/area-do-inscrito.html?tokenRedefinicao=${token}`;
+
+      await enviarEmailRedefinicaoSenha({
+        nome: usuario.nome,
+        email: usuario.email,
+        linkRedefinicao,
+        minutosExpiracao: MINUTOS_EXPIRACAO_REDEFINICAO,
+      });
+    }
+
+    res.json({ sucesso: true, mensagem: mensagemPadrao });
+  } catch (erro) {
+    console.error("[Esqueci Senha] Erro ao gerar link de redefinição:", erro.message);
+    // Mesmo em caso de erro interno, não revela se o CPF existe ou não.
+    res.json({ sucesso: true, mensagem: mensagemPadrao });
+  }
+});
+
+// 3.2. Link mágico de redefinição de senha - passo 2: a pessoa chega pelo
+// link recebido por e-mail (com o token) e escolhe a nova senha.
+app.post("/api/aluno/redefinir-senha", limitadorLogin, (req, res) => {
+  const { token, novaSenha, confirmacaoSenha } = req.body || {};
+
+  if (!token) {
+    return res.status(400).json({ erro: "Link de redefinição inválido." });
+  }
+
+  if (!novaSenha || novaSenha.trim().length < 6) {
+    return res.status(400).json({ erro: "A nova senha deve ter no mínimo 6 caracteres." });
+  }
+
+  if (novaSenha !== confirmacaoSenha) {
+    return res.status(400).json({ erro: "A confirmação de senha não confere." });
+  }
+
+  const usuario = db.prepare(`SELECT * FROM inscritos WHERE token_redefinicao_senha = ?`).get(token);
+
+  if (!usuario) {
+    return res.status(400).json({ erro: "Link de redefinição inválido ou já utilizado. Solicite um novo." });
+  }
+
+  if (!usuario.token_redefinicao_expira || new Date(usuario.token_redefinicao_expira) < new Date()) {
+    return res.status(400).json({ erro: "Este link de redefinição expirou. Solicite um novo." });
+  }
+
+  const novoHash = hashSenha(novaSenha.trim());
+
+  // Troca a senha, apaga o token (só pode ser usado uma vez) e derruba
+  // qualquer sessão já aberta (token_sessao), obrigando um novo login com a
+  // senha nova - assim, se alguém mais tinha acesso à sessão antiga, perde o acesso.
+  db.prepare(`
+    UPDATE inscritos
+    SET senha_hash = ?,
+        senha_plana_inicial = NULL,
+        troca_senha_obrigatoria = 0,
+        token_redefinicao_senha = NULL,
+        token_redefinicao_expira = NULL,
+        token_sessao = NULL
+    WHERE id = ?
+  `).run(novoHash, usuario.id);
+
+  res.json({ sucesso: true, mensagem: "Senha redefinida com sucesso! Você já pode entrar com a nova senha." });
 });
 
 // 4. Obter dados completos de todos os cursos do aluno unificado e detalhes do curso ativo
@@ -844,9 +1214,9 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
            cursos.preco AS preco_curso
     FROM inscricoes
     LEFT JOIN cursos ON inscricoes.curso = cursos.id
-    WHERE LOWER(inscricoes.email) = ? OR (inscricoes.cpf IS NOT NULL AND inscricoes.cpf != '' AND inscricoes.cpf = ?)
+    WHERE inscricoes.inscrito_id = ?
     ORDER BY inscricoes.id DESC
-  `).all(u.email.toLowerCase(), u.cpf || "");
+  `).all(u.id);
 
   if (!inscricoes || inscricoes.length === 0) {
     return res.status(404).json({ erro: "Nenhuma inscrição encontrada para este usuário." });
@@ -884,11 +1254,11 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
 
   res.json({
     id: inscricaoAtiva.id,
-    nome: u.nome || inscricaoAtiva.nome,
-    email: u.email || inscricaoAtiva.email,
-    empresa: u.empresa || inscricaoAtiva.empresa,
-    telefone: u.telefone || inscricaoAtiva.telefone,
-    cpf: u.cpf || inscricaoAtiva.cpf,
+    nome: u.nome,
+    email: u.email,
+    empresa: u.empresa,
+    telefone: u.telefone,
+    cpf: formatarCpf(u.cpf),
     status_pagamento: inscricaoAtiva.status_pagamento || "pago",
     data_pagamento: inscricaoAtiva.data_pagamento,
     mp_init_point: inscricaoAtiva.mp_init_point,
@@ -914,7 +1284,25 @@ app.get("/api/aluno/meus-dados", autenticarAluno, (req, res) => {
 });
 
 // 5. Rota para alternar o status de pagamento do curso selecionado durante testes
+//
+// CORREÇÃO DE SEGURANÇA IMPORTANTE: esta rota existia sem nenhuma trava, o
+// que significa que QUALQUER aluno logado (com sua própria sessão legítima,
+// sem precisar de nada especial) podia marcar a própria inscrição como
+// "pago" a qualquer momento, sem pagar nada de verdade - bastava abrir o
+// Painel do Inscrito e clicar no botão "Simular como PAGO", que fica visível
+// pra qualquer pessoa cadastrada. Isso é uma "gambiarra" de teste que nunca
+// foi removida antes de o site rodar de verdade. Agora ela só funciona
+// quando a variável de ambiente PERMITIR_SIMULACAO_ALUNO estiver configurada
+// como "true" - ou seja, continua disponível pra você testar localmente,
+// mas fica automaticamente desligada em produção (Render), a menos que você
+// configure essa variável lá de propósito.
 app.post("/api/aluno/simular-pagamento", autenticarAluno, (req, res) => {
+  if (process.env.PERMITIR_SIMULACAO_ALUNO !== "true") {
+    return res.status(403).json({
+      erro: "Este recurso de teste está desativado. Fale com a administração para confirmar seu pagamento.",
+    });
+  }
+
   const { status, inscricaoId } = req.body;
   const novoStatus = status === "pago" ? "pago" : "pendente";
   const dataPag = novoStatus === "pago" ? new Date().toISOString() : null;
@@ -929,8 +1317,8 @@ app.post("/api/aluno/simular-pagamento", autenticarAluno, (req, res) => {
     db.prepare(`
       UPDATE inscricoes
       SET status_pagamento = ?, data_pagamento = ?
-      WHERE LOWER(email) = ?
-    `).run(novoStatus, dataPag, req.usuarioAluno.email.toLowerCase());
+      WHERE inscrito_id = ?
+    `).run(novoStatus, dataPag, req.usuarioAluno.id);
   }
 
   res.json({ sucesso: true, status_pagamento: novoStatus, data_pagamento: dataPag });
@@ -938,9 +1326,7 @@ app.post("/api/aluno/simular-pagamento", autenticarAluno, (req, res) => {
 
 // 6. Logout do Painel do Inscrito
 app.post("/api/aluno/logout", autenticarAluno, (req, res) => {
-  const emailNorm = req.usuarioAluno.email.toLowerCase();
-  db.prepare(`UPDATE usuarios_aluno SET token_sessao = NULL WHERE LOWER(email) = ?`).run(emailNorm);
-  db.prepare(`UPDATE inscricoes SET token_sessao = NULL WHERE LOWER(email) = ?`).run(emailNorm);
+  db.prepare(`UPDATE inscritos SET token_sessao = NULL WHERE id = ?`).run(req.usuarioAluno.id);
   res.json({ sucesso: true });
 });
 
@@ -966,57 +1352,37 @@ app.get("/api/public/certificado/:codigo", (req, res) => {
   if (inscricaoId) {
     inscricao = db.prepare(`
       SELECT inscricoes.*,
+             inscritos.nome, inscritos.empresa, inscritos.cpf,
              cursos.nome AS nome_curso,
              cursos.carga_horaria,
              cursos.data_evento,
              cursos.descricao AS descricao_curso
       FROM inscricoes
+      JOIN inscritos ON inscritos.id = inscricoes.inscrito_id
       LEFT JOIN cursos ON inscricoes.curso = cursos.id
       WHERE inscricoes.id = ?
     `).get(inscricaoId);
   }
 
-  // Se não encontrou por ID específico, busca a inscrição mais recente paga para testes
-  if (!inscricao) {
-    inscricao = db.prepare(`
-      SELECT inscricoes.*,
-             cursos.nome AS nome_curso,
-             cursos.carga_horaria,
-             cursos.data_evento,
-             cursos.descricao AS descricao_curso
-      FROM inscricoes
-      LEFT JOIN cursos ON inscricoes.curso = cursos.id
-      WHERE inscricoes.status_pagamento = 'pago'
-      ORDER BY inscricoes.id DESC
-      LIMIT 1
-    `).get();
-  }
-
+  // IMPORTANTE - CORREÇÃO DE SEGURANÇA: antes, quando o código informado não
+  // batia com nenhuma inscrição real, esta rota "inventava" uma resposta -
+  // ou mostrava os dados (nome, empresa, CPF mascarado) da inscrição paga
+  // MAIS RECENTE, mesmo sendo de outra pessoa completamente diferente do
+  // código digitado, ou devolvia um certificado de demonstração genérico
+  // marcado como "válido". Como esta rota é pública, sem login, e pensada
+  // pra ser consultada por terceiros (recrutadores, LinkedIn etc. - veja o
+  // comentário da rota acima), isso permitia duas coisas graves: (1) vazar
+  // nome/empresa/CPF de uma pessoa real pra qualquer um que digitasse um
+  // código qualquer, mesmo sem nunca ter tido acesso ao certificado dela; e
+  // (2) fazer um código inventado parecer um certificado oficial "válido".
+  // Agora, sem uma inscrição encontrada de verdade pelo ID exato do código,
+  // a resposta é sempre "não encontrado" - nunca inventa nem empresta os
+  // dados de outra pessoa.
   if (!inscricao) {
     return res.json({
-      valido: true,
-      codigo: codigoRaw || "APS-2026-0001-0000",
-      aluno: {
-        nome: "Participante Concluinte Oficial",
-        empresa: "Produtor Associado",
-        cpfMascarado: "***.***.000-**"
-      },
-      curso: {
-        id: "curso-padrao",
-        nome: "Curso de Formação e Atualização em Produção de Sementes e Mudas",
-        carga_horaria: "16 horas",
-        data_evento: "Edição Oficial 2026"
-      },
-      emissao: {
-        instituicao: "Apassul - Associação dos Produtores e Comerciantes de Sementes e Mudas do RS",
-        cnpj: "92.045.327/0001-06",
-        status: "Autenticidade Digital Registrada",
-        dataEmissao: "2026",
-        assinaturas: [
-          { cargo: "Diretor Executivo", instituicao: "Apassul" },
-          { cargo: "Desenvolvedor de Mercado", instituicao: "Apassul" }
-        ]
-      }
+      valido: false,
+      codigo: codigoRaw,
+      mensagem: "Código de certificado não encontrado. Verifique se ele foi digitado corretamente.",
     });
   }
 

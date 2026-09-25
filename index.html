@@ -11,12 +11,18 @@
   <meta name="description" content="Sistema de inscrição para cursos da Apassul">
   <meta property="og:title" content="Painel de Inscrição - Apassul">
   <meta property="og:description" content="Sistema de inscrição para cursos da Apassul">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- Barra fininha colada na borda superior da tela: fica invisível até o
+       envio da inscrição, e aparece "enchendo" enquanto o servidor processa -
+       só pra deixar claro que o site está trabalhando, e não travado. -->
+  <div class="barra-carregamento-topo" id="barraCarregamentoTopo" aria-hidden="true"></div>
 
   <!-- Barra "congelada" no topo da página, igual à linha congelada do Excel:
        fica sempre visível (position: fixed no CSS), mesmo rolando a página
@@ -137,6 +143,9 @@
     <div id="detalhesCurso"></div>
     <br>
 
+    <label for="cpf">CPF para Inscrição:</label><br>
+    <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric"><br><br>
+
     <label for="botaoEmpresa">Empresa:</label><br>
     <div class="select-personalizado" id="seletorEmpresa">
       <button type="button" class="select-botao" id="botaoEmpresa" aria-haspopup="listbox" aria-expanded="false">
@@ -252,9 +261,6 @@
     <label for="telefone">Telefone do Participante:</label><br>
     <input type="tel" id="telefone" name="telefone" placeholder="(51) 99999-9999" maxlength="15" inputmode="numeric"><br><br>
 
-    <label for="cpf">CPF do Participante para emissão de certificado:</label><br>
-    <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric"><br><br>
-
     <fieldset id="grupoPagamento">
       <legend>Selecione o Método de Pagamento</legend>
 
@@ -364,7 +370,10 @@
       desistência, reembolso e restrições de gravação e compartilhamento do conteúdo, e autorizo o uso
       dos dados informados para fins relacionados ao treinamento.
     </label>
-    <br><br>
+    <p class="link-politica-privacidade">
+      📄 <a href="/politica-de-privacidade.html" target="_blank" rel="noopener">Leia nossa Política de Privacidade</a>
+    </p>
+    <br>
 
     <button type="submit" id="btnEnviar" class="botao-enviar">Enviar inscrição</button>
   </form>

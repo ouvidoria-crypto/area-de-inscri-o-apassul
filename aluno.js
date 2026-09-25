@@ -10,6 +10,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const msgErroLogin = document.getElementById("msgErroLogin");
   const msgSucessoLogin = document.getElementById("msgSucessoLogin");
 
+  // "Esqueci minha senha" (link mágico enviado por e-mail)
+  const cardLoginAluno = document.querySelector(".card-login-aluno");
+  const boxAjudaLogin = document.getElementById("boxAjudaLogin");
+  const linkEsqueciSenha = document.getElementById("linkEsqueciSenha");
+  const linkVoltarLoginEsqueci = document.getElementById("linkVoltarLoginEsqueci");
+  const painelEsqueciSenha = document.getElementById("painelEsqueciSenha");
+  const formEsqueciSenha = document.getElementById("formEsqueciSenha");
+  const inputCpfEsqueciSenha = document.getElementById("inputCpfEsqueciSenha");
+  const btnEnviarLinkRedefinicao = document.getElementById("btnEnviarLinkRedefinicao");
+  const msgErroEsqueciSenha = document.getElementById("msgErroEsqueciSenha");
+  const msgSucessoEsqueciSenha = document.getElementById("msgSucessoEsqueciSenha");
+
+  const painelRedefinirSenha = document.getElementById("painelRedefinirSenha");
+  const formRedefinirSenha = document.getElementById("formRedefinirSenha");
+  const inputNovaSenhaRedefinicao = document.getElementById("inputNovaSenhaRedefinicao");
+  const inputConfirmarSenhaRedefinicao = document.getElementById("inputConfirmarSenhaRedefinicao");
+  const btnConfirmarRedefinicao = document.getElementById("btnConfirmarRedefinicao");
+  const msgErroRedefinirSenha = document.getElementById("msgErroRedefinirSenha");
+  const msgSucessoRedefinirSenha = document.getElementById("msgSucessoRedefinirSenha");
+
   const formTrocaSenha = document.getElementById("formTrocaSenha");
   const inputNovaSenha = document.getElementById("inputNovaSenha");
   const inputConfirmaSenha = document.getElementById("inputConfirmaSenha");
@@ -455,6 +475,25 @@ document.addEventListener("DOMContentLoaded", () => {
     // O curso ativo no modal de certificados é SEMPRE sincronizado com o curso selecionado na barra horizontal superior
     const cursoAtivo = dados.curso || listaCursos[0];
 
+    // O certificado só é liberado depois que o pagamento da inscrição
+    // daquele curso for confirmado - antes disso mostra só o aviso
+    // "Certificado em Processamento" (sem nome, CPF ou código de
+    // autenticidade), igual já acontece com a Área do Curso (aulas/materiais).
+    const statusPagamentoCurso = cursoAtivo.status_pagamento || dados.status_pagamento;
+    if (statusPagamentoCurso && statusPagamentoCurso !== "pago") {
+      if (blocoCertificadoDisponivel) {
+        blocoCertificadoDisponivel.hidden = true;
+        blocoCertificadoDisponivel.setAttribute("hidden", "hidden");
+        blocoCertificadoDisponivel.style.display = "none";
+      }
+      if (blocoCertificadoPendente) {
+        blocoCertificadoPendente.hidden = false;
+        blocoCertificadoPendente.removeAttribute("hidden");
+        blocoCertificadoPendente.style.display = "block";
+      }
+      return;
+    }
+
     // Garante que o container do certificado esteja ativo
     if (blocoCertificadoDisponivel) {
       blocoCertificadoDisponivel.hidden = false;
@@ -633,6 +672,154 @@ document.addEventListener("DOMContentLoaded", () => {
       btnEntrarAluno.textContent = "Entrar no Painel do Inscrito";
     }
   });
+
+  // ==========================================================
+  // "Esqueci minha senha" - link mágico enviado por e-mail
+  // ==========================================================
+
+  // Alterna qual dos três cartões aparece dentro da tela de login: o
+  // formulário normal, o de "esqueci minha senha" (pede o CPF) ou o de
+  // "redefinir senha" (aparece quando a pessoa chega pelo link do e-mail).
+  function mostrarCartaoLogin(cartao) {
+    if (cardLoginAluno) cardLoginAluno.hidden = cartao !== "login";
+    if (painelEsqueciSenha) painelEsqueciSenha.hidden = cartao !== "esqueci";
+    if (painelRedefinirSenha) painelRedefinirSenha.hidden = cartao !== "redefinir";
+    if (boxAjudaLogin) boxAjudaLogin.hidden = cartao !== "login";
+  }
+
+  function mascararCPFEsqueciSenha(valor) {
+    const digitos = valor.replace(/\D/g, "").slice(0, 11);
+    if (digitos.length <= 3) return digitos;
+    if (digitos.length <= 6) return `${digitos.slice(0, 3)}.${digitos.slice(3)}`;
+    if (digitos.length <= 9) return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`;
+    return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`;
+  }
+
+  if (inputCpfEsqueciSenha) {
+    inputCpfEsqueciSenha.addEventListener("input", () => {
+      inputCpfEsqueciSenha.value = mascararCPFEsqueciSenha(inputCpfEsqueciSenha.value);
+    });
+  }
+
+  if (linkEsqueciSenha) {
+    linkEsqueciSenha.addEventListener("click", (e) => {
+      e.preventDefault();
+      msgErroEsqueciSenha.hidden = true;
+      msgSucessoEsqueciSenha.hidden = true;
+      mostrarCartaoLogin("esqueci");
+    });
+  }
+
+  if (linkVoltarLoginEsqueci) {
+    linkVoltarLoginEsqueci.addEventListener("click", (e) => {
+      e.preventDefault();
+      mostrarCartaoLogin("login");
+    });
+  }
+
+  if (formEsqueciSenha) {
+    formEsqueciSenha.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgErroEsqueciSenha.hidden = true;
+      msgSucessoEsqueciSenha.hidden = true;
+
+      const cpfDigitado = inputCpfEsqueciSenha.value.replace(/\D/g, "");
+      if (cpfDigitado.length !== 11) {
+        mostrarErro(msgErroEsqueciSenha, "Informe um CPF válido, com 11 dígitos.");
+        return;
+      }
+
+      btnEnviarLinkRedefinicao.disabled = true;
+      btnEnviarLinkRedefinicao.textContent = "Enviando...";
+
+      try {
+        const res = await fetch("/api/aluno/esqueci-senha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cpf: cpfDigitado }),
+        });
+
+        const resposta = await res.json();
+        btnEnviarLinkRedefinicao.disabled = false;
+        btnEnviarLinkRedefinicao.textContent = "Enviar link de redefinição";
+
+        if (!res.ok) {
+          mostrarErro(msgErroEsqueciSenha, resposta.erro || "Não foi possível enviar o link de redefinição.");
+          return;
+        }
+
+        msgSucessoEsqueciSenha.textContent = resposta.mensagem;
+        msgSucessoEsqueciSenha.hidden = false;
+        formEsqueciSenha.reset();
+      } catch (err) {
+        btnEnviarLinkRedefinicao.disabled = false;
+        btnEnviarLinkRedefinicao.textContent = "Enviar link de redefinição";
+        mostrarErro(msgErroEsqueciSenha, "Erro de conexão ao solicitar o link de redefinição.");
+      }
+    });
+  }
+
+  // Token que veio na URL do link recebido por e-mail (?tokenRedefinicao=...)
+  const tokenRedefinicaoUrl = new URLSearchParams(window.location.search).get("tokenRedefinicao");
+
+  if (formRedefinirSenha) {
+    formRedefinirSenha.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgErroRedefinirSenha.hidden = true;
+      msgSucessoRedefinirSenha.hidden = true;
+
+      const novaSenha = inputNovaSenhaRedefinicao.value;
+      const confirmacaoSenha = inputConfirmarSenhaRedefinicao.value;
+
+      if (!novaSenha || novaSenha.length < 6) {
+        mostrarErro(msgErroRedefinirSenha, "A nova senha deve possuir pelo menos 6 dígitos.");
+        return;
+      }
+
+      if (novaSenha !== confirmacaoSenha) {
+        mostrarErro(msgErroRedefinirSenha, "As senhas informadas não conferem. Digite novamente.");
+        return;
+      }
+
+      btnConfirmarRedefinicao.disabled = true;
+      btnConfirmarRedefinicao.textContent = "Salvando...";
+
+      try {
+        const res = await fetch("/api/aluno/redefinir-senha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: tokenRedefinicaoUrl, novaSenha, confirmacaoSenha }),
+        });
+
+        const resposta = await res.json();
+
+        if (!res.ok) {
+          btnConfirmarRedefinicao.disabled = false;
+          btnConfirmarRedefinicao.textContent = "Definir nova senha";
+          mostrarErro(msgErroRedefinirSenha, resposta.erro || "Não foi possível redefinir a senha.");
+          return;
+        }
+
+        msgSucessoRedefinirSenha.textContent = "Senha redefinida com sucesso! Redirecionando para o login...";
+        msgSucessoRedefinirSenha.hidden = false;
+
+        setTimeout(() => {
+          // Remove o token da URL e volta pra tela normal de login
+          window.location.href = "/area-do-inscrito.html";
+        }, 1800);
+      } catch (err) {
+        btnConfirmarRedefinicao.disabled = false;
+        btnConfirmarRedefinicao.textContent = "Definir nova senha";
+        mostrarErro(msgErroRedefinirSenha, "Erro de conexão ao redefinir a senha.");
+      }
+    });
+  }
+
+  // Se a página foi aberta a partir do link do e-mail, já abre direto no
+  // cartão de "redefinir senha", sem precisar passar pela tela de login.
+  if (tokenRedefinicaoUrl) {
+    mostrarCartaoLogin("redefinir");
+  }
 
   // Submit Troca de Senha
   formTrocaSenha.addEventListener("submit", async (e) => {
@@ -1474,7 +1661,15 @@ document.addEventListener("DOMContentLoaded", () => {
     inputSenhaAluno.value = senhaParam;
   }
 
-  if (tokenAtual) {
+  if (tokenRedefinicaoUrl) {
+    // Prioriza o fluxo de redefinição de senha mesmo que já exista uma
+    // sessão salva neste navegador - a pessoa clicou no link do e-mail de
+    // propósito, então mostramos a tela de login (com o cartão de
+    // redefinição já selecionado acima) em vez do painel do curso.
+    secaoPainelAluno.hidden = true;
+    secaoLogin.hidden = false;
+    configurarEstadoDeslogado();
+  } else if (tokenAtual) {
     carregarPainel();
   } else {
     configurarEstadoDeslogado();

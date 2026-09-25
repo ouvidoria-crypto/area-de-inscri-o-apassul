@@ -23,6 +23,32 @@ body.pagina-admin {
   width: 95%;
 }
 
+/* ----------------------------------------------------------------------
+   Barra de carregamento colada na borda superior da tela (estilo "reading
+   bar"), acima até da barra da logo (z-index maior). Fica com "width: 0"
+   e invisível o tempo todo, e só aparece quando a inscrição é enviada -
+   ver as funções iniciarBarraCarregamento()/concluirBarraCarregamento()
+   no script.js. Isso dá um retorno visual claro de que o site está
+   processando o envio, evitando a sensação de que travou.
+   ---------------------------------------------------------------------- */
+.barra-carregamento-topo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, #2e6b3e, #5fae76);
+  z-index: 999;
+  opacity: 0;
+  box-shadow: 0 0 8px rgba(46, 107, 62, 0.6);
+  transition: width 0.4s ease, opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.barra-carregamento-topo.ativa {
+  opacity: 1;
+}
+
 /* Barra "congelada" no topo, no mesmo espírito da linha congelada do Excel:
    "position: fixed" tira a barra do fluxo normal da página e a mantém
    sempre grudada no topo da tela, não importa o quanto se role para baixo.
@@ -361,6 +387,30 @@ fieldset label:has(input:checked) {
   background-color: #2e6b3e;
   font-weight: bold;
   color: #ffffff;
+}
+
+/* Link da Política de Privacidade: fica FORA da caixa do checkbox de
+   propósito. Antes ele ficava embutido no meio do texto do aceite, com o
+   mesmo estilo azul/sublinhado usado pra links de e-mail - o que ficava
+   estranho ali (ainda mais quando o checkbox é marcado e a caixa inteira
+   vira verde escuro, deixando o azul do link brigando com o fundo). Como
+   linha separada, discreta e na cor do site, o aceite fica limpo e o link
+   continua bem visível e clicável. */
+.link-politica-privacidade {
+  margin: 8px 2px 16px;
+  font-size: 13px;
+  color: #64748b;
+  text-align: center;
+}
+
+.link-politica-privacidade a {
+  color: #2e6b3e;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-politica-privacidade a:hover {
+  text-decoration: underline;
 }
 
 button {
@@ -1183,6 +1233,128 @@ button.btn-limpar-data:hover {
   margin-top: 3px;
 }
 
+/* ----------------------------------------------------------------------
+   Tabela "Lista de inscritos" do admin: linhas expansíveis (accordion),
+   agrupadas por CPF. Quem tem só 1 inscrição continua vendo a linha única
+   de sempre; quem tem mais de 1 ganha uma seta (›) que expande uma
+   sub-tabela com o detalhe de cada inscrição daquela pessoa.
+   ---------------------------------------------------------------------- */
+/* O "bloco" do nome (nome + botão de excluir cadastro) tem exatamente a
+   mesma estrutura na linha de 1 inscrição só e na linha com várias - assim
+   as duas ficam sempre do mesmo tamanho. A seta "›", quando existe, fica
+   POSICIONADA FORA desse bloco (no respiro/gutter à esquerda da célula via
+   "position: absolute"), então ela nunca aperta ou aumenta o bloco do nome. */
+.celula-nome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Célula que tem a seta de expandir: reserva um respiro à esquerda pra seta
+   ficar fora do bloco de texto, e vira a referência de posicionamento dela. */
+td.celula-com-seta {
+  position: relative;
+  padding-left: 34px;
+}
+
+.botao-expandir {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #2e6b3e;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.botao-expandir:hover {
+  background-color: #e6efe8;
+}
+
+/* Gira a seta 90 graus quando a linha está expandida (mantendo ela centralizada verticalmente) */
+.botao-expandir[aria-expanded="true"] {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+/* Botões de exclusão (inscrição individual e cadastro inteiro) - mesmo
+   visual nos dois lugares onde aparecem. */
+.btn-excluir-inscricao,
+.btn-excluir-cadastro {
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.btn-excluir-inscricao:hover,
+.btn-excluir-cadastro:hover {
+  background-color: #fee2e2;
+}
+
+.badge-inscricoes {
+  display: inline-block;
+  background-color: #eaf5ec;
+  color: #2e6b3e;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  white-space: normal;
+}
+
+/* Linha expandida: fica com "hidden" no HTML enquanto fechada. O efeito de
+   abrir/fechar suave é feito animando o "max-height" do painel interno
+   (ver admin.js) - animar direto a <tr>/<td> não funciona bem em CSS puro. */
+tr.linha-expandida td {
+  background-color: #fafbfa;
+  padding: 0 14px 14px 46px;
+  white-space: normal;
+}
+
+.painel-expandido {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease;
+}
+
+.painel-expandido.aberto {
+  max-height: 600px;
+}
+
+table.tabela-inscricoes-aninhada {
+  width: 100%;
+  margin-top: 10px;
+  box-shadow: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+table.tabela-inscricoes-aninhada th {
+  background-color: #eaf5ec;
+  color: #2e6b3e;
+  font-size: 12px;
+}
+
+table.tabela-inscricoes-aninhada td {
+  font-size: 13px;
+}
+
 .texto-mp-id {
   color: #666;
   font-size: 11px;
@@ -1434,7 +1606,7 @@ fieldset.campo-invalido {
   padding: 16px 20px;
   margin-bottom: 24px;
   box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
-  animation: entradaSuave 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: entradaSuave 0.3s ease;
 }
 
 .banner-dados-conteudo {

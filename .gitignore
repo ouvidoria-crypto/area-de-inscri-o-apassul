@@ -5,3 +5,16 @@ node_modules/
 # banco.db são os SEUS dados reais (nomes, e-mails). Nunca deve ir para um
 # repositório de código, mesmo privado.
 banco.db
+
+# .env contém SENHAS e CHAVES SECRETAS de verdade (senha do admin, token do
+# Mercado Pago, senha do e-mail). Isso NUNCA pode ir para o Git, nem em
+# repositório privado - se um dia vazar, é o mesmo que publicar as senhas.
+# ".env.example" (sem dados reais, só os nomes das variáveis) continua sendo
+# versionado normalmente, só o arquivo ".env" de verdade é ignorado aqui.
+.env
+.env.*
+!.env.example
+
+# Pasta de backups/arquivos de trabalho gerados durante o desenvolvimento com
+# o Claude - não faz parte do site em si.
+Claude outputs/

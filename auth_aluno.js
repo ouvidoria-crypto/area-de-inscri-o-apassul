@@ -32,12 +32,32 @@ function gerarTokenSessao() {
 
 /**
  * Libera o acesso do participante quando o pagamento é confirmado (Pix, Boleto ou manual)
- * Gera a senha alfanumérica de 8 caracteres e envia o e-mail automaticamente
+ * Gera a senha alfanumérica de 8 caracteres (se a pessoa ainda não tiver uma) e envia o
+ * e-mail de acesso automaticamente.
+ *
+ * A partir da unificação por CPF, os dados de login (senha_hash, troca_senha_obrigatoria)
+ * vivem só na tabela "inscritos" - não existe mais uma tabela separada ("usuarios_aluno")
+ * pra manter sincronizada a cada chamada. Isso elimina uma classe inteira de bugs que o
+ * projeto já teve (duas cópias dos mesmos dados podendo divergir quando algum caminho de
+ * código esquecia de atualizar as duas).
+ *
+ * IMPORTANTE (segurança): a senha em texto puro (antes do hash) NUNCA é salva no banco -
+ * ela só existe na memória do servidor pelo tempo necessário pra mandar o e-mail, e depois
+ * desaparece. Isso significa que não existe mais como "recuperar" uma senha já gerada -
+ * só como gerar uma nova (que invalida a anterior). Por isso o parâmetro "forcarNovaSenha":
+ * quando o Administrador pede explicitamente pra reenviar o acesso de alguém que ainda não
+ * definiu a própria senha, a única forma seliza de "reenviar" é gerar uma senha nova.
  */
-async function liberarAcessoInscrito(db, inscricaoId, baseUrl) {
+async function liberarAcessoInscrito(db, inscricaoId, baseUrl, opcoes = {}) {
+  const { forcarNovaSenha = false } = opcoes;
+
   const inscricao = db.prepare(`
-    SELECT inscricoes.*, cursos.nome AS nome_curso, cursos.data_evento, cursos.carga_horaria
+    SELECT inscricoes.id, inscricoes.status_pagamento,
+           inscritos.id AS inscrito_id, inscritos.nome, inscritos.email,
+           inscritos.senha_hash, inscritos.troca_senha_obrigatoria,
+           cursos.nome AS nome_curso, cursos.data_evento, cursos.carga_horaria
     FROM inscricoes
+    JOIN inscritos ON inscritos.id = inscricoes.inscrito_id
     LEFT JOIN cursos ON inscricoes.curso = cursos.id
     WHERE inscricoes.id = ?
   `).get(inscricaoId);
@@ -46,65 +66,60 @@ async function liberarAcessoInscrito(db, inscricaoId, baseUrl) {
     throw new Error(`Inscrição ${inscricaoId} não encontrada.`);
   }
 
-  const emailNorm = inscricao.email.trim().toLowerCase();
-  let usuario = db.prepare("SELECT * FROM usuarios_aluno WHERE LOWER(email) = ?").get(emailNorm);
+  // "Já tinha senha definitiva" = a própria pessoa já escolheu essa senha
+  // (não é mais a senha provisória gerada pelo sistema). Nesse caso o
+  // acesso NUNCA é resetado automaticamente - nem pelo fluxo normal, nem
+  // pelo botão "Reenviar acesso" - porque isso derrubaria uma senha que só
+  // a pessoa conhece. Quem esqueceu a própria senha usa "Esqueci minha
+  // senha" (fluxo separado, por token de e-mail), não este aqui.
+  const jaTinhaSenhaDefinitiva = !!(inscricao.senha_hash && inscricao.troca_senha_obrigatoria === 0);
+  const totalOutrasInscricoes = db.prepare(
+    "SELECT COUNT(*) AS total FROM inscricoes WHERE inscrito_id = ? AND id != ?"
+  ).get(inscricao.inscrito_id, inscricaoId)?.total || 0;
+  // "Já possui conta" (uso no fluxo automático): essa PESSOA já tinha uma
+  // senha definitiva antes, ou já tem outra inscrição além desta - em
+  // qualquer um dos dois casos, o fluxo automático não deve gerar nem
+  // mostrar senha nenhuma, porque ela já sabe entrar no Painel do Inscrito.
+  const jaPossuiConta = jaTinhaSenhaDefinitiva || totalOutrasInscricoes > 0;
 
-  const jaTinhaCadastroDefinido = !!(usuario?.senha_hash && (usuario.troca_senha_obrigatoria === 0 || usuario.senha_plana_inicial));
-  const totalInscricoesAnteriores = db.prepare("SELECT COUNT(*) AS total FROM inscricoes WHERE LOWER(email) = ? AND id != ?").get(emailNorm, inscricaoId)?.total || 0;
-  const jaPossuiConta = jaTinhaCadastroDefinido || totalInscricoesAnteriores > 0;
+  let senhaPlana = null;
+  let senhaHash = inscricao.senha_hash;
+  let trocaObrigatoria = inscricao.troca_senha_obrigatoria != null ? inscricao.troca_senha_obrigatoria : 1;
 
-  let senhaPlana = usuario?.senha_plana_inicial || inscricao.senha_plana_inicial;
-  let senhaHash = usuario?.senha_hash || inscricao.senha_hash;
-  let trocaObrigatoria = usuario?.troca_senha_obrigatoria != null ? usuario.troca_senha_obrigatoria : 1;
+  // Gera uma senha nova quando: (a) a pessoa nunca teve senha nenhuma no
+  // sistema [fluxo normal, primeira liberação de acesso], ou (b) foi pedido
+  // explicitamente um reenvio de acesso pelo painel admin e ela ainda está
+  // na senha provisória (não escolheu a própria) - não temos mais como
+  // reenviar a senha antiga, então "reenviar" vira "gerar uma nova".
+  const precisaGerarSenha = !senhaHash || (forcarNovaSenha && !jaTinhaSenhaDefinitiva);
 
-  // Se o usuário ainda não possuir senha no sistema, gera a senha de 8 caracteres
-  if (!senhaHash) {
+  if (precisaGerarSenha) {
     senhaPlana = gerarSenhaAlfanumerica(8);
     senhaHash = hashSenha(senhaPlana);
     trocaObrigatoria = 1;
+
+    db.prepare(`
+      UPDATE inscritos
+      SET senha_hash = ?, troca_senha_obrigatoria = ?
+      WHERE id = ?
+    `).run(senhaHash, trocaObrigatoria, inscricao.inscrito_id);
   }
 
-  // Garante sincronia na tabela unificada usuarios_aluno
-  db.prepare(`
-    INSERT INTO usuarios_aluno (email, cpf, nome, empresa, telefone, senha_hash, senha_plana_inicial, troca_senha_obrigatoria, criado_em)
-    VALUES (@email, @cpf, @nome, @empresa, @telefone, @senha_hash, @senha_plana_inicial, @troca_senha_obrigatoria, @criado_em)
-    ON CONFLICT(email) DO UPDATE SET
-      cpf = COALESCE(excluded.cpf, usuarios_aluno.cpf),
-      nome = COALESCE(excluded.nome, usuarios_aluno.nome),
-      empresa = COALESCE(excluded.empresa, usuarios_aluno.empresa),
-      telefone = COALESCE(excluded.telefone, usuarios_aluno.telefone),
-      senha_hash = COALESCE(usuarios_aluno.senha_hash, excluded.senha_hash)
-  `).run({
-    email: emailNorm,
-    cpf: inscricao.cpf || null,
-    nome: inscricao.nome,
-    empresa: inscricao.empresa || null,
-    telefone: inscricao.telefone || null,
-    senha_hash: senhaHash,
-    senha_plana_inicial: senhaPlana,
-    troca_senha_obrigatoria: trocaObrigatoria,
-    criado_em: new Date().toISOString()
-  });
-
-  // Atualiza os dados desta inscrição específica
-  db.prepare(`
-    UPDATE inscricoes
-    SET senha_hash = ?,
-        senha_plana_inicial = ?,
-        troca_senha_obrigatoria = ?
-    WHERE id = ?
-  `).run(senhaHash, senhaPlana, trocaObrigatoria, inscricaoId);
+  // No reenvio forçado, se geramos senha nova ela é sempre mostrada (é o
+  // ponto do botão). No fluxo automático, continua seguindo "jaPossuiConta"
+  // como sempre seguiu, pra não repetir e-mail de senha à toa.
+  const deveExibirSenha = forcarNovaSenha ? precisaGerarSenha : (precisaGerarSenha && !jaPossuiConta);
 
   // Envia o e-mail de confirmação / acesso
   const resultadoEmail = await enviarEmailAcessoInscrito({
     nome: inscricao.nome,
     email: inscricao.email,
     nomeCurso: inscricao.nome_curso || inscricao.curso,
-    senhaTemporaria: jaPossuiConta ? null : senhaPlana,
+    senhaTemporaria: deveExibirSenha ? senhaPlana : null,
     baseUrl,
     dataEvento: inscricao.data_evento,
     cargaHoraria: inscricao.carga_horaria,
-    jaPossuiConta,
+    jaPossuiConta: !deveExibirSenha,
   });
 
   if (resultadoEmail.sucesso) {
@@ -119,8 +134,9 @@ async function liberarAcessoInscrito(db, inscricaoId, baseUrl) {
   return {
     sucesso: true,
     email: inscricao.email,
-    senhaGerada: jaPossuiConta ? null : senhaPlana,
-    jaPossuiConta,
+    senhaGerada: deveExibirSenha ? senhaPlana : null,
+    jaPossuiConta: !deveExibirSenha,
+    jaTinhaSenhaDefinitiva,
     emailEnviado: resultadoEmail.sucesso,
     motivo: resultadoEmail.motivo || null,
   };

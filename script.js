@@ -27,6 +27,47 @@ function mostrarConfirmacao(urlPersonalizada) {
 overlayConfirmacao.addEventListener("click", irParaPaginaConfirmacao);
 
 // ============================================================================
+// Barra de carregamento no topo da página: aparece ao clicar em "Enviar
+// inscrição", pra dar um retorno visual de que o site está processando (e
+// não travado) enquanto espera a resposta do servidor. Como não dá pra saber
+// de antemão quanto tempo isso vai levar, ela "finge" um progresso: cresce
+// rápido no início e vai desacelerando perto de 90%, só completando os 100%
+// de verdade quando a resposta chega (sucesso ou erro).
+// ============================================================================
+const barraCarregamentoTopo = document.getElementById("barraCarregamentoTopo");
+let intervaloBarraCarregamento = null;
+
+function iniciarBarraCarregamento() {
+  if (!barraCarregamentoTopo) return;
+  clearInterval(intervaloBarraCarregamento);
+
+  // Reseta sem animação antes de começar, senão o "voltar pra 0%" também
+  // ficaria visível deslizando (mesmo truque de reflow usado em outras
+  // animações do projeto).
+  barraCarregamentoTopo.style.transition = "none";
+  barraCarregamentoTopo.style.width = "0%";
+  barraCarregamentoTopo.classList.add("ativa");
+  void barraCarregamentoTopo.offsetWidth;
+  barraCarregamentoTopo.style.transition = "width 0.4s ease, opacity 0.25s ease";
+
+  let progresso = 0;
+  intervaloBarraCarregamento = setInterval(() => {
+    progresso += (90 - progresso) * 0.1;
+    barraCarregamentoTopo.style.width = `${Math.min(progresso, 90)}%`;
+  }, 200);
+}
+
+function concluirBarraCarregamento() {
+  if (!barraCarregamentoTopo) return;
+  clearInterval(intervaloBarraCarregamento);
+  barraCarregamentoTopo.style.width = "100%";
+  setTimeout(() => {
+    barraCarregamentoTopo.classList.remove("ativa");
+    setTimeout(() => { barraCarregamentoTopo.style.width = "0%"; }, 300);
+  }, 250);
+}
+
+// ============================================================================
 // Barra "congelada" no topo (mesma ideia da linha congelada do Excel): fica
 // sempre visível (é "position: fixed" no CSS) e encolhe conforme a página é
 // rolada para baixo, voltando a crescer - e se estabilizando no tamanho
@@ -634,17 +675,17 @@ function preencherDadosAluno(usuario, cursosInscritos = []) {
   usuarioJaLogadoInscricao = true;
 }
 
+// A identificação de cadastro existente agora é feita só pelo CPF (não mais
+// pelo e-mail) - por isso essa função só dispara a consulta quando o CPF já
+// tem os 11 dígitos, e só envia o CPF pro servidor.
 async function verificarExistenciaUsuario() {
   if (usuarioJaLogadoInscricao) return;
 
-  const emailVal = campoEmail.value.trim();
   const cpfVal = campoCPF.value.trim();
   const cpfNumeros = cpfVal.replace(/\D/g, "");
-
-  const emailValido = emailVal.includes("@") && emailVal.includes(".");
   const cpfValido = cpfNumeros.length === 11;
 
-  if (!emailValido && !cpfValido) {
+  if (!cpfValido) {
     return;
   }
 
@@ -652,7 +693,7 @@ async function verificarExistenciaUsuario() {
     const res = await fetch("/api/aluno/verificar-cadastro", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailVal, cpf: cpfVal }),
+      body: JSON.stringify({ cpf: cpfVal }),
     });
 
     if (!res.ok) return;
@@ -666,7 +707,7 @@ async function verificarExistenciaUsuario() {
           tituloUsuarioDetectado.textContent = `Olá, ${data.nome.split(" ")[0]}! Identificamos seu cadastro na Apassul.`;
         }
         if (subtituloUsuarioDetectado) {
-          subtituloUsuarioDetectado.textContent = "Você já possui uma conta unificada registrada com este e-mail/CPF. Digite sua senha abaixo para carregar seus dados cadastrais automaticamente e poupar tempo!";
+          subtituloUsuarioDetectado.textContent = "Você já possui uma conta unificada registrada com este CPF. Digite sua senha abaixo para carregar seus dados cadastrais automaticamente e poupar tempo!";
         }
         if (senhaLoginInscricao) {
           senhaLoginInscricao.focus();
@@ -683,8 +724,6 @@ function agendarVerificacao() {
   debounceVerificacao = setTimeout(verificarExistenciaUsuario, 450);
 }
 
-campoEmail.addEventListener("blur", verificarExistenciaUsuario);
-campoEmail.addEventListener("input", agendarVerificacao);
 campoCPF.addEventListener("blur", verificarExistenciaUsuario);
 campoCPF.addEventListener("input", agendarVerificacao);
 
@@ -921,6 +960,7 @@ formulario.addEventListener("submit", async function (evento) {
   const textoBotaoOriginal = btnEnviar.textContent;
   btnEnviar.disabled = true;
   btnEnviar.textContent = "Processando inscrição...";
+  iniciarBarraCarregamento();
 
   try {
     const resposta = await fetch("/inscricoes", {
@@ -936,6 +976,7 @@ formulario.addEventListener("submit", async function (evento) {
     const dados = await resposta.json();
 
     if (resposta.ok) {
+      concluirBarraCarregamento();
       esconderBalaoErro();
       sessionStorage.setItem("emailParticipante", email);
       if (dados.id) {
@@ -946,22 +987,35 @@ formulario.addEventListener("submit", async function (evento) {
         sessionStorage.removeItem("senhaTemporaria");
       } else {
         sessionStorage.removeItem("usuarioJaPossuiConta");
+        // Limpa qualquer sessão de aluno antiga guardada neste navegador -
+        // evita que o login de uma pessoa testada antes "vaze" pra tela de
+        // confirmação de uma pessoa nova se inscrevendo no mesmo computador.
+        sessionStorage.removeItem("token_aluno_apassul");
+        localStorage.removeItem("token_aluno_apassul");
         if (dados.senhaTemporaria) {
           sessionStorage.setItem("senhaTemporaria", dados.senhaTemporaria);
         }
       }
 
-      // [MODO DE TESTE: Inscrição confirmada diretamente sem exigência de pagamento]
+      // Sempre mostra o overlay de "Inscrição Confirmada" e leva a pessoa
+      // pra tela de confirmação (inscricao-confirmada.html), qualquer que
+      // seja a forma de pagamento escolhida - inclusive Pix e Boleto. O
+      // redirecionamento automático pro Mercado Pago foi removido: agora,
+      // se o pagamento ainda não estiver confirmado, é a própria tela de
+      // confirmação que mostra um botão "Ir pagar no Mercado Pago" pra
+      // pessoa clicar quando quiser.
       const urlConfirmacao = dados.id
         ? `/inscricao-confirmada.html?id=${dados.id}`
         : "/inscricao-confirmada.html";
       mostrarConfirmacao(urlConfirmacao);
     } else {
+      concluirBarraCarregamento();
       btnEnviar.disabled = false;
       btnEnviar.textContent = textoBotaoOriginal;
       mostrarErroCampo(btnEnviar, dados.erro || "Não foi possível enviar a inscrição.");
     }
   } catch (erro) {
+    concluirBarraCarregamento();
     btnEnviar.disabled = false;
     btnEnviar.textContent = textoBotaoOriginal;
     mostrarErroCampo(btnEnviar, "Erro de conexão com o servidor. Tente novamente.");
